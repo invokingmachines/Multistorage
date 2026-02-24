@@ -1,0 +1,5 @@
+databaseChangeLog:
+  - include:
+      file: classpath:db/changelog/v1/001-create-parent-table.yaml
+  - include:
+      file: classpath:db/changelog/v1/002-create-child-table.yaml
