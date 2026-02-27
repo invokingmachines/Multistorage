@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Collections;
 import java.util.List;
 
 @Data
@@ -11,7 +12,6 @@ import java.util.List;
 @NoArgsConstructor
 public class Query {
 
-    private String target;
     private List<List<String>> select;
-    private Criteria where;
+    private Criteria where = new Criteria(Logician.AND, Collections.emptyList());
 }

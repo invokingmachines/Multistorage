@@ -1,5 +1,6 @@
-package com.invokingmachines.multistorage.service;
+package com.invokingmachines.multistorage.meta.service;
 
+import com.invokingmachines.multistorage.config.MultistorageScanProperties;
 import com.invokingmachines.multistorage.dto.db.Column;
 import com.invokingmachines.multistorage.dto.db.Relation;
 import com.invokingmachines.multistorage.dto.db.Table;
@@ -15,6 +16,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -22,36 +26,43 @@ import java.util.Map;
 public class DatabaseMetadataManagerService {
 
     private final DataSource dataSource;
+    private final Optional<MetaSyncService> metaSyncService;
+    private final MultistorageScanProperties scanProperties;
     private Map<String, Table> tablesMetadata = new HashMap<>();
 
     public Map<String, Table> scanDatabase() {
         tablesMetadata.clear();
-        
+
         try (var connection = dataSource.getConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             String catalog = connection.getCatalog();
             String schema = connection.getSchema() == null ? "public" : connection.getSchema();
-            
+
             log.info("Scanning database: catalog={}, schema={}", catalog, schema);
-            
+
             scanTables(metaData, catalog, schema);
             scanColumns(metaData, catalog, schema);
             scanRelations(metaData, catalog, schema);
-            
+
             log.info("Database scan completed. Found {} tables", tablesMetadata.size());
-            
+
         } catch (SQLException e) {
             log.error("Error scanning database", e);
             throw new RuntimeException("Failed to scan database", e);
         }
-        
+
+        metaSyncService.ifPresent(s -> s.syncFromScan(tablesMetadata));
         return tablesMetadata;
     }
 
     private void scanTables(DatabaseMetaData metaData, String catalog, String schema) throws SQLException {
+        Set<String> ignore = scanProperties.getEffectiveIgnoreTables().stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
         try (ResultSet tables = metaData.getTables(catalog, schema, "%", new String[]{"TABLE", "VIEW"})) {
             while (tables.next()) {
                 String tableName = tables.getString("TABLE_NAME");
+                if (ignore.contains(tableName.toLowerCase())) continue;
                 String tableType = tables.getString("TABLE_TYPE");
                 String tableSchema = tables.getString("TABLE_SCHEM");
                 String tableCatalog = tables.getString("TABLE_CAT");

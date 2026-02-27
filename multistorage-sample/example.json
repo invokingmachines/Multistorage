@@ -1,0 +1,14 @@
+{   "target": "parent",
+  "select":[["name"], ["created_at"], ["childToParent", "name"], ["childToParent", "created_at"]],
+  "where":{
+    "logician":"AND",
+    "criteria":[
+      {
+        "logician":"OR",
+        "criteria":[
+          {"field":["childToParent","name"],"operator":"EQ","value":"Child 19"},
+          {"field":["childToParent","name"],"operator":"EQ","value":"Child 20"}]},
+      {"field":["created_at"],"operator":"GT","value":"2026-02-26T23:36:46.000Z"}
+    ]
+  }
+}

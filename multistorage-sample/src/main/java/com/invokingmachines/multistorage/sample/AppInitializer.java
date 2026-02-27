@@ -1,7 +1,7 @@
 package com.invokingmachines.multistorage.sample;
 
 import com.invokingmachines.multistorage.dto.db.Table;
-import com.invokingmachines.multistorage.service.DatabaseMetadataManagerService;
+import com.invokingmachines.multistorage.meta.service.DatabaseMetadataManagerService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

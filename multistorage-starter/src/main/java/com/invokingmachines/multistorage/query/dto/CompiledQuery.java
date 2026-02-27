@@ -1,4 +1,4 @@
-package com.invokingmachines.multistorage.compiler;
+package com.invokingmachines.multistorage.query.dto;
 
 import lombok.Builder;
 import lombok.Data;

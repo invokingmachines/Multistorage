@@ -1,0 +1,7 @@
+databaseChangeLog:
+  - include:
+      file: classpath:db/changelog/meta/001-meta-table.yaml
+  - include:
+      file: classpath:db/changelog/meta/002-meta-column.yaml
+  - include:
+      file: classpath:db/changelog/meta/003-meta-relation.yaml

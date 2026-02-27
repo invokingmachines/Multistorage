@@ -1,14 +1,14 @@
 databaseChangeLog:
   - changeSet:
-      id: 001-create-parent-table
-      author: system
+      id: 001-meta-table
+      author: multistorage
       changes:
         - createTable:
-            tableName: parent
+            tableName: meta_table
             columns:
               - column:
                   name: id
-                  type: BIGSERIAL
+                  type: UUID
                   constraints:
                     primaryKey: true
                     nullable: false
@@ -17,14 +17,22 @@ databaseChangeLog:
                   type: VARCHAR(255)
                   constraints:
                     nullable: false
+                    unique: true
               - column:
-                  name: description
-                  type: TEXT
+                  name: alias
+                  type: VARCHAR(255)
                   constraints:
-                    nullable: true
+                    nullable: false
+                    unique: true
               - column:
                   name: created_at
                   type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
                   defaultValueComputed: CURRENT_TIMESTAMP
                   constraints:
                     nullable: false

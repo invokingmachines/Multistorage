@@ -10,4 +10,9 @@ public class ColumnMeta {
 
     private String name;
     private String alias;
+    private String dataType;
+    @Builder.Default
+    private Boolean readable = true;
+    @Builder.Default
+    private Boolean searchable = true;
 }

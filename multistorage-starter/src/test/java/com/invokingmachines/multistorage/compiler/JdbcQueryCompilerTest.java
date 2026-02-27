@@ -6,15 +6,10 @@ import com.invokingmachines.multistorage.dto.meta.QueryMeta;
 import com.invokingmachines.multistorage.dto.meta.RelationMeta;
 import com.invokingmachines.multistorage.dto.meta.TableMeta;
 import com.invokingmachines.multistorage.dto.query.Query;
-import com.invokingmachines.multistorage.dto.schema.Column;
-import com.invokingmachines.multistorage.dto.schema.EntitySchema;
-import com.invokingmachines.multistorage.dto.schema.Relation;
-import com.invokingmachines.multistorage.dto.schema.Table;
+import com.invokingmachines.multistorage.query.dto.CompiledQuery;
+import com.invokingmachines.multistorage.query.service.QueryCompiler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,13 +35,14 @@ class JdbcQueryCompilerTest {
                                         ColumnMeta.builder()
                                                 .name("name_db")
                                                 .alias("name")
+                                                .dataType("varchar")
                                                 .build())
 
                                 .relation("children",
                                         RelationMeta.builder()
                                                 .name("children")
-                                                .fromColumn("parent_id")
-                                                .toColumn("id")
+                                                .manyColumn("parent_id")
+                                                .oneColumn("id")
                                                 .childTable("child_db")
                                                 .build())
                                 .build())
@@ -58,41 +54,43 @@ class JdbcQueryCompilerTest {
                                         ColumnMeta.builder()
                                                 .name("name_db")
                                                 .alias("name")
+                                                .dataType("varchar")
                                                 .build())
                                 .column("parent_id",
                                         ColumnMeta.builder()
                                                 .name("parent_id")
                                                 .alias("parent_id")
+                                                .dataType("int8")
                                                 .build())
                                 .build())
                 .build();
 
         String json = """
-                {   "target": "parent",
-                    "select":[["name"], ["children", "name"]],
-                    "where":{
-                        "logician":"AND",
-                        "criteria":[
-                            {"field":["children", "name"],"operator":"EQ","value":"test"},
-                            {
-                                "logician":"AND",
-                                "criteria":[
-                                    {"field":["children", "name"],"operator":"EQ","value":"test"},
-                                    {"field":["name"],"operator":"EQ","value":"test"}
-                                ]
-                            }
-                            ]
-                        }
-                }
+{
+    "select":[["name"], ["children", "name"]],
+    "where":{
+        "logician":"AND",
+        "criteria":[
+            {"field":["children", "name"],"operator":"EQ","value":"test"},
+            {
+                "logician":"AND",
+                "criteria":[
+                    {"field":["children", "name"],"operator":"EQ","value":"test"},
+                    {"field":["name"],"operator":"EQ","value":"test"}
+                ]
+            }
+            ]
+        }
+}
                 """;
         Query query = objectMapper.readValue(json, Query.class);
-        CompiledQuery result = compiler.compile(query, qm);
+        CompiledQuery result = compiler.compile(query, qm, "parent");
 
         assertThat(result.getSql()).contains("SELECT");
         assertThat(result.getSql()).contains("\"parent_db\"");
         assertThat(result.getSql()).contains("\"name\"");
         assertThat(result.getSql()).contains("=");
-        assertThat(result.getParameters()).containsExactly("test");
+        assertThat(result.getParameters()).containsExactly("test", "test", "test");
     }
 //
 //    @Test

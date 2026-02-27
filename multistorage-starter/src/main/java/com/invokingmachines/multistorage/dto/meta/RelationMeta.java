@@ -10,6 +10,6 @@ public class RelationMeta {
 
     private String name;
     private String childTable;
-    private String fromColumn;
-    private String toColumn;
+    private String manyColumn;
+    private String oneColumn;
 }

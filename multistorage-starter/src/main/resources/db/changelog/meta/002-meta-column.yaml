@@ -1,0 +1,68 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-meta-column
+      author: multistorage
+      changes:
+        - createTable:
+            tableName: meta_column
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: table_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_meta_column_table
+                    references: meta_table(id)
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: alias
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: data_type
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: readable
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: searchable
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: meta_column
+            columnNames: table_id, name
+            constraintName: uk_meta_column_table_name
+        - addUniqueConstraint:
+            tableName: meta_column
+            columnNames: table_id, alias
+            constraintName: uk_meta_column_table_alias
