@@ -61,19 +61,18 @@ public class QueryCompiler {
 
     private List<List<String>> expandSelect(List<List<String>> select, QueryMeta meta, String target) {
         if (select == null || select.isEmpty()) {
-            return expandStar(meta.getTables().get(target), target, null);
+            return expandStar(meta.getTables().get(target), null);
         }
         List<List<String>> result = new ArrayList<>();
         for (List<String> path : select) {
             if (path == null || path.isEmpty()) continue;
             if (path.size() == 1 && "*".equals(path.getFirst())) {
-                result.addAll(expandStar(meta.getTables().get(target), target, null));
-            } else if (path.size() == 2 && "*".equals(path.get(1))) {
-                String relationName = path.get(0);
-                RelationMeta relation = meta.getTables().get(target).getRelations().get(relationName);
-                TableMeta relationTable = relation != null ? resolveTableByPhysicalName(meta, relation.getChildTable()) : null;
-                if (relationTable != null)
-                    result.addAll(expandStar(relationTable, relationName, relationName));
+                result.addAll(expandStar(meta.getTables().get(target), null));
+            } else if (path.size() >= 2 && "*".equals(path.get(path.size() - 1))) {
+                List<String> chain = path.subList(0, path.size() - 1);
+                TableMeta table = resolveTableByRelationChain(meta, target, chain);
+                if (table != null)
+                    result.addAll(expandStar(table, chain));
             } else {
                 result.add(path);
             }
@@ -81,17 +80,40 @@ public class QueryCompiler {
         return result;
     }
 
+    private TableMeta resolveTableByRelationChain(QueryMeta meta, String target, List<String> chain) {
+        return resolveTableByRelationChainStatic(meta, target, chain);
+    }
+
+    static TableMeta resolveTableByRelationChainStatic(QueryMeta meta, String target, List<String> chain) {
+        if (chain == null || chain.isEmpty()) return meta.getTables().get(target);
+        TableMeta current = meta.getTables().get(target);
+        if (current == null) return null;
+        for (String rel : chain) {
+            RelationMeta r = current.getRelations().get(rel);
+            if (r == null) return null;
+            current = resolveTableByPhysicalNameStatic(meta, r.getChildTable());
+            if (current == null) return null;
+        }
+        return current;
+    }
+
     private TableMeta resolveTableByPhysicalName(QueryMeta meta, String physicalName) {
+        return resolveTableByPhysicalNameStatic(meta, physicalName);
+    }
+
+    static TableMeta resolveTableByPhysicalNameStatic(QueryMeta meta, String physicalName) {
         return meta.getTables().values().stream()
                 .filter(t -> physicalName.equals(t.getName()))
                 .findFirst()
                 .orElse(meta.getTables().get(physicalName));
     }
 
-    private List<List<String>> expandStar(TableMeta table, String tableAlias, String relationPrefix) {
+    private List<List<String>> expandStar(TableMeta table, List<String> relationPrefix) {
         return table.getColumns().values().stream()
                 .filter(c -> Boolean.TRUE.equals(c.getReadable()))
-                .map(c -> relationPrefix == null ? List.of(c.getAlias()) : List.of(relationPrefix, c.getAlias()))
+                .map(c -> relationPrefix == null || relationPrefix.isEmpty()
+                        ? List.of(c.getAlias())
+                        : Stream.concat(relationPrefix.stream(), Stream.of(c.getAlias())).toList())
                 .toList();
     }
 
@@ -159,70 +181,65 @@ public class QueryCompiler {
 
     private String buildFrom(List<List<String>> select, Criteria where, QueryMeta meta, Map<String, String> aliasesMapping, String target) {
         String from = " FROM \"" + aliasesMapping.get(target) + "\" AS \"" + target + "\"";
-
-        List<List<String>> sel = select != null ? select : List.of();
-        boolean isJoinsRequired = sel.stream().anyMatch(s -> s != null && s.size() > 1) ||
-                (where != null && anyCompositeCriterion(where));
-
-        if (!isJoinsRequired) {
-            return from;
-        }
-
-        String joins = Stream.concat(
-                (where != null ? getCompositeCriterion(where) : List.<String>of()).stream(),
-                getCompositeSelect(sel).stream())
-                .distinct()
-                .map(rel -> meta.getTables().get(target).getRelations().get(rel))
-                .map(r -> String.format(" LEFT JOIN \"%s\" AS \"%s\" ON \"%s\".\"%s\" = \"%s\".\"%s\"",
-                        r.getChildTable(),
-                        r.getName(),
-                        aliasesMapping.get(target),
-                        r.getJoinCurrentColumn() != null ? r.getJoinCurrentColumn() : r.getOneColumn(),
-                        r.getName(),
-                        r.getJoinChildColumn() != null ? r.getJoinChildColumn() : r.getManyColumn()))
+        List<List<String>> chains = collectChains(select, where);
+        if (chains.isEmpty()) return from;
+        return from + buildJoinSteps(target, chains).stream()
+                .map(step -> formatJoin(step, meta, target))
+                .filter(Objects::nonNull)
                 .collect(Collectors.joining(" "));
-
-        return from + joins;
     }
 
-    private List<String> getCompositeSelect(List<List<String>> select) {
-        if (select == null) return List.of();
-        return select.stream()
-                .filter(path -> path != null && path.size() > 1)
-                .map(path -> path.get(0))
+    private List<List<String>> collectChains(List<List<String>> select, Criteria where) {
+        List<List<String>> fromSelect = select != null
+                ? select.stream().filter(p -> p != null && p.size() >= 2).map(p -> List.copyOf(p.subList(0, p.size() - 1))).toList()
+                : List.of();
+        List<List<String>> fromWhere = getChainsFromWhere(where);
+        return Stream.concat(fromSelect.stream(), fromWhere.stream())
                 .distinct()
+                .sorted(Comparator.comparingInt(List::size))
                 .toList();
     }
 
-    private boolean anyCompositeCriterion(Criteria where) {
-        for (Node n: where.getCriteria()) {
-            if(n instanceof Criteria) {
-                if(anyCompositeCriterion((Criteria)n)) {
-                    return true;
-                }
-            } else if (n instanceof Criterion) {
-                Criterion c = (Criterion)n;
-                if(c.getField().size() > 1)
-                    return true;
+    private List<List<String>> getChainsFromWhere(Criteria where) {
+        if (where == null) return List.of();
+        List<List<String>> out = new ArrayList<>();
+        for (Node n : where.getCriteria()) {
+            if (n instanceof Criteria) out.addAll(getChainsFromWhere((Criteria) n));
+            else if (n instanceof Criterion) {
+                List<String> f = ((Criterion) n).getField();
+                if (f != null && f.size() > 1) out.add(List.copyOf(f.subList(0, f.size() - 1)));
             }
         }
-        return false;
+        return out;
     }
 
-    private List<String> getCompositeCriterion(Criteria where) {
-        List<String> compositeCriteria = new ArrayList<>();
-        for (Node n: where.getCriteria()) {
-            if(n instanceof Criteria) {
-                compositeCriteria.addAll(getCompositeCriterion((Criteria) n));
-            } else if (n instanceof Criterion) {
-                Criterion c = (Criterion)n;
-                LinkedList<String> list = new LinkedList<>(c.getField());
-                while(list.size() > 1) {
-                    compositeCriteria.add(list.removeFirst());
-                }
+    private List<String> buildJoinSteps(String target, List<List<String>> chains) {
+        List<String> steps = new ArrayList<>();
+        for (List<String> chain : chains) {
+            String fromAlias = target;
+            for (String toRel : chain) {
+                steps.add(fromAlias + "|" + toRel);
+                fromAlias = toRel;
             }
         }
-        return compositeCriteria;
+        return steps.stream().distinct().toList();
+    }
+
+    private String formatJoin(String step, QueryMeta meta, String target) {
+        int pipe = step.indexOf('|');
+        String fromAlias = step.substring(0, pipe);
+        String toRel = step.substring(pipe + 1);
+        RelationMeta r = fromAlias.equals(target)
+                ? meta.getTables().get(target).getRelations().get(toRel)
+                : Optional.ofNullable(meta.getTables().get(target).getRelations().get(fromAlias))
+                        .flatMap(rel -> Optional.ofNullable(resolveTableByPhysicalName(meta, rel.getChildTable())))
+                        .map(t -> t.getRelations().get(toRel))
+                        .orElse(null);
+        if (r == null) return null;
+        String curr = r.getJoinCurrentColumn() != null ? r.getJoinCurrentColumn() : r.getOneColumn();
+        String child = r.getJoinChildColumn() != null ? r.getJoinChildColumn() : r.getManyColumn();
+        return String.format(" LEFT JOIN \"%s\" AS \"%s\" ON \"%s\".\"%s\" = \"%s\".\"%s\"",
+                r.getChildTable(), r.getName(), fromAlias, curr, r.getName(), child);
     }
 
     private List<Object> mapCriteriaToParams(Criteria where, QueryMeta meta, String target, Map<String, String> aliasMapping) {
@@ -232,18 +249,10 @@ public class QueryCompiler {
                 params.addAll(mapCriteriaToParams((Criteria) node, meta, target, aliasMapping));
             } else if (node instanceof Criterion) {
                 Criterion c = (Criterion) node;
-
-                ColumnMeta cm;
-
-                if (c.getField().size() == 1)
-                    cm = meta.getTables().get(target).getColumns().get(c.getField().get(0));
-                else {
-                    RelationMeta rel = meta.getTables().get(target).getRelations().get(c.getField().get(0));
-                    TableMeta relTable = rel != null ? resolveTableByPhysicalName(meta, rel.getChildTable()) : null;
-                    cm = relTable != null ? relTable.getColumns().get(c.getField().getLast()) : null;
-                }
-
-                params.add(convertValue(c.getValue(), cm.getDataType()));
+                List<String> field = c.getField();
+                TableMeta table = field.size() == 1 ? meta.getTables().get(target) : resolveTableByRelationChain(meta, target, field.subList(0, field.size() - 1));
+                ColumnMeta cm = table != null ? table.getColumns().get(field.get(field.size() - 1)) : null;
+                params.add(convertValue(c.getValue(), cm != null ? cm.getDataType() : "varchar"));
             }
         }
         return params;

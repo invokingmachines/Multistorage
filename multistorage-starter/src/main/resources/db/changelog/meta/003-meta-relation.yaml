@@ -42,6 +42,11 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: inverse_name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
                   name: is_active
                   type: BOOLEAN
                   defaultValueBoolean: true

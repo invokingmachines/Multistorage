@@ -68,10 +68,12 @@ public class MetaSyncService {
             MetaTableEntity oneTableMeta = metaTableRepository.findByName(fk.getReferencedTable()).orElse(null);
             if (oneTableMeta == null) continue;
             String defaultName = manyTableMeta.getAlias() + "To" + StringUtils.capitalize(oneTableMeta.getAlias());
+            String defaultInverseName = oneTableMeta.getAlias() + "To" + StringUtils.capitalize(manyTableMeta.getAlias());
             metaRelationRepository.findByManyTableIdAndName(manyTableMeta.getId(), defaultName)
                     .map(existing -> {
                         existing.setManyColumn(fk.getForeignKeyColumn());
                         existing.setOneColumn(fk.getReferencedColumn());
+                        existing.setInverseName(defaultInverseName);
                         return metaRelationRepository.save(existing);
                     })
                     .orElseGet(() -> metaRelationRepository.save(MetaRelationEntity.builder()
@@ -80,6 +82,7 @@ public class MetaSyncService {
                             .manyColumn(fk.getForeignKeyColumn())
                             .oneColumn(fk.getReferencedColumn())
                             .name(defaultName)
+                            .inverseName(defaultInverseName)
                             .active(true)
                             .build()));
         }

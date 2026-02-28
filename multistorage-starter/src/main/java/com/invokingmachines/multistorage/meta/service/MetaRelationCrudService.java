@@ -41,6 +41,7 @@ public class MetaRelationCrudService {
                 .map(e -> {
                     e.setManyColumn(request.getManyColumn());
                     e.setOneColumn(request.getOneColumn());
+                    if (request.getInverseName() != null) e.setInverseName(request.getInverseName());
                     if (request.getActive() != null) e.setActive(request.getActive());
                     if (request.getManyTable() != null) e.setManyTable(metaTableCrudService.resolveTable(request.getManyTable()).orElseThrow());
                     if (request.getOneTable() != null) e.setOneTable(metaTableCrudService.resolveTable(request.getOneTable()).orElseThrow());
@@ -70,6 +71,7 @@ public class MetaRelationCrudService {
                 .manyColumn(e.getManyColumn())
                 .oneColumn(e.getOneColumn())
                 .name(e.getName())
+                .inverseName(e.getInverseName())
                 .active(e.getActive())
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())

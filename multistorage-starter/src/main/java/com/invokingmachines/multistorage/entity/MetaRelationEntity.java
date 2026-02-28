@@ -36,6 +36,9 @@ public class MetaRelationEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "inverse_name")
+    private String inverseName;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean active = true;

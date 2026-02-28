@@ -22,6 +22,6 @@ public class SearchService {
         var meta = metaProvider.getMeta(MetaRequest.builder().build());
         CompiledQuery compiled = queryCompiler.compile(query, meta, target);
         List<Map<String, Object>> rows = queryExecutionService.execute(compiled);
-        return ResultNestingTransformer.nestRelationFields(rows, compiled.getExpandedSelect());
+        return ResultNestingTransformer.nestRelationFields(rows, compiled.getExpandedSelect(), meta, target);
     }
 }

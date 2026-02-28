@@ -18,6 +18,7 @@ public class MetaRelationDto {
     private String manyColumn;
     private String oneColumn;
     private String name;
+    private String inverseName;
     private Boolean active;
     private Instant createdAt;
     private Instant updatedAt;

@@ -16,5 +16,6 @@ public class MetaRelationRequest {
     private String manyColumn;
     private String oneColumn;
     private String name;
+    private String inverseName;
     private Boolean active;
 }

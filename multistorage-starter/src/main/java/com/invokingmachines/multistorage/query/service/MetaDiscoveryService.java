@@ -45,7 +45,9 @@ public class MetaDiscoveryService {
         List<MetaColumnEntity> columns = metaColumnRepository.findByTableId(t.getId());
         List<String> relations = new ArrayList<>();
         metaRelationRepository.findByOneTableIdAndActiveTrue(t.getId()).stream()
-                .map(r -> r.getOneTable().getAlias() + "To" + StringUtils.capitalize(r.getManyTable().getAlias()))
+                .map(r -> r.getInverseName() != null && !r.getInverseName().isBlank()
+                        ? r.getInverseName()
+                        : r.getOneTable().getAlias() + "To" + StringUtils.capitalize(r.getManyTable().getAlias()))
                 .forEach(relations::add);
         metaRelationRepository.findByManyTableIdAndActiveTrue(t.getId()).stream()
                 .map(MetaRelationEntity::getName)

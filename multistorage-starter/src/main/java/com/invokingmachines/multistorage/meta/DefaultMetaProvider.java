@@ -87,7 +87,9 @@ public class DefaultMetaProvider implements MetaProvider {
     }
 
     private static String oneToManyRelationName(MetaRelationEntity r) {
-        return r.getOneTable().getAlias() + "To" + StringUtils.capitalize(r.getManyTable().getAlias());
+        return r.getInverseName() != null && !r.getInverseName().isBlank()
+                ? r.getInverseName()
+                : r.getOneTable().getAlias() + "To" + StringUtils.capitalize(r.getManyTable().getAlias());
     }
 
     private RelationMeta toRelationMetaFromOne(MetaRelationEntity r) {
