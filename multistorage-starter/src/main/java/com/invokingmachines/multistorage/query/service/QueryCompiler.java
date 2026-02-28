@@ -25,10 +25,12 @@ public class QueryCompiler {
             query.setWhere(new Criteria(Logician.AND, List.of()));
 
         Map<String, String> aliasesMapping = mapAlliases(meta);
+        List<List<String>> expandedSelect = expandSelect(query.getSelect(), meta, target);
 
         return CompiledQuery.builder()
-                .sql(buildSql(query, meta, aliasesMapping, target))
+                .sql(buildSql(expandedSelect, query, meta, aliasesMapping, target))
                 .parameters(mapCriteriaToParams(query.getWhere(), meta, target, aliasesMapping))
+                .expandedSelect(expandedSelect)
                 .build();
     }
 
@@ -51,10 +53,46 @@ public class QueryCompiler {
         return aliases;
     }
 
-    private String buildSql(Query query, QueryMeta meta, Map<String, String> aliasesMapping, String target) {
-        String select = buildSelect(target, query.getSelect());
-        String from = buildFrom(query, meta, aliasesMapping, target);
+    private String buildSql(List<List<String>> expandedSelect, Query query, QueryMeta meta, Map<String, String> aliasesMapping, String target) {
+        String select = buildSelect(target, expandedSelect, meta);
+        String from = buildFrom(expandedSelect, query.getWhere(), meta, aliasesMapping, target);
         return select + from + buildWhere(target, query.getWhere()) + ";";
+    }
+
+    private List<List<String>> expandSelect(List<List<String>> select, QueryMeta meta, String target) {
+        if (select == null || select.isEmpty()) {
+            return expandStar(meta.getTables().get(target), target, null);
+        }
+        List<List<String>> result = new ArrayList<>();
+        for (List<String> path : select) {
+            if (path == null || path.isEmpty()) continue;
+            if (path.size() == 1 && "*".equals(path.getFirst())) {
+                result.addAll(expandStar(meta.getTables().get(target), target, null));
+            } else if (path.size() == 2 && "*".equals(path.get(1))) {
+                String relationName = path.get(0);
+                RelationMeta relation = meta.getTables().get(target).getRelations().get(relationName);
+                TableMeta relationTable = relation != null ? resolveTableByPhysicalName(meta, relation.getChildTable()) : null;
+                if (relationTable != null)
+                    result.addAll(expandStar(relationTable, relationName, relationName));
+            } else {
+                result.add(path);
+            }
+        }
+        return result;
+    }
+
+    private TableMeta resolveTableByPhysicalName(QueryMeta meta, String physicalName) {
+        return meta.getTables().values().stream()
+                .filter(t -> physicalName.equals(t.getName()))
+                .findFirst()
+                .orElse(meta.getTables().get(physicalName));
+    }
+
+    private List<List<String>> expandStar(TableMeta table, String tableAlias, String relationPrefix) {
+        return table.getColumns().values().stream()
+                .filter(c -> Boolean.TRUE.equals(c.getReadable()))
+                .map(c -> relationPrefix == null ? List.of(c.getAlias()) : List.of(relationPrefix, c.getAlias()))
+                .toList();
     }
 
     private String buildWhere(String target, Criteria criteria) {
@@ -97,8 +135,10 @@ public class QueryCompiler {
         }
     }
 
-    private String buildSelect(String target, List<List<String>> select) {
-        if (select == null || select.isEmpty()) return "SELECT *";
+    private String buildSelect(String target, List<List<String>> select, QueryMeta meta) {
+        if (select == null || select.isEmpty()) {
+            return defaultSelect(target, meta);
+        }
         return "SELECT " + select
                 .stream()
                 .map((List<String> path) -> {
@@ -109,26 +149,37 @@ public class QueryCompiler {
                 .collect(Collectors.joining(", "));
     }
 
-    private String buildFrom(Query query, QueryMeta meta, Map<String, String> aliasesMapping, String target) {
+    private String defaultSelect(String target, QueryMeta meta) {
+        List<String> parts = meta.getTables().get(target).getColumns().values().stream()
+                .filter(c -> Boolean.TRUE.equals(c.getReadable()))
+                .map(c -> String.format("\"%s\".\"%s\" AS \"%s\"", target, c.getName(), c.getAlias()))
+                .toList();
+        return parts.isEmpty() ? "SELECT 1" : "SELECT " + String.join(", ", parts);
+    }
+
+    private String buildFrom(List<List<String>> select, Criteria where, QueryMeta meta, Map<String, String> aliasesMapping, String target) {
         String from = " FROM \"" + aliasesMapping.get(target) + "\" AS \"" + target + "\"";
 
-        boolean isJoinsRequired = query.getSelect().stream().anyMatch(s -> s.size() > 1) ||
-                anyCompositeCriterion(query.getWhere());
+        List<List<String>> sel = select != null ? select : List.of();
+        boolean isJoinsRequired = sel.stream().anyMatch(s -> s != null && s.size() > 1) ||
+                (where != null && anyCompositeCriterion(where));
 
         if (!isJoinsRequired) {
             return from;
         }
 
-        String joins = Stream.concat(getCompositeCriterion(query.getWhere()).stream(), getCompositeSelect(query.getSelect()).stream())
+        String joins = Stream.concat(
+                (where != null ? getCompositeCriterion(where) : List.<String>of()).stream(),
+                getCompositeSelect(sel).stream())
                 .distinct()
-                .map(a -> meta.getTables().get(target).getRelations().get(a))
+                .map(rel -> meta.getTables().get(target).getRelations().get(rel))
                 .map(r -> String.format(" LEFT JOIN \"%s\" AS \"%s\" ON \"%s\".\"%s\" = \"%s\".\"%s\"",
                         r.getChildTable(),
                         r.getName(),
                         aliasesMapping.get(target),
-                        r.getOneColumn(),
+                        r.getJoinCurrentColumn() != null ? r.getJoinCurrentColumn() : r.getOneColumn(),
                         r.getName(),
-                        r.getManyColumn()))
+                        r.getJoinChildColumn() != null ? r.getJoinChildColumn() : r.getManyColumn()))
                 .collect(Collectors.joining(" "));
 
         return from + joins;
@@ -186,8 +237,11 @@ public class QueryCompiler {
 
                 if (c.getField().size() == 1)
                     cm = meta.getTables().get(target).getColumns().get(c.getField().get(0));
-                else
-                    cm = meta.getTables().get(c.getField().get(0)).getColumns().get(c.getField().getLast());
+                else {
+                    RelationMeta rel = meta.getTables().get(target).getRelations().get(c.getField().get(0));
+                    TableMeta relTable = rel != null ? resolveTableByPhysicalName(meta, rel.getChildTable()) : null;
+                    cm = relTable != null ? relTable.getColumns().get(c.getField().getLast()) : null;
+                }
 
                 params.add(convertValue(c.getValue(), cm.getDataType()));
             }

@@ -12,4 +12,5 @@ public class CompiledQuery {
 
     private String sql;
     private List<Object> parameters;
+    private List<List<String>> expandedSelect;
 }

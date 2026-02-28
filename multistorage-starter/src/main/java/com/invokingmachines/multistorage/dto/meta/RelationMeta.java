@@ -12,4 +12,6 @@ public class RelationMeta {
     private String childTable;
     private String manyColumn;
     private String oneColumn;
+    private String joinCurrentColumn;
+    private String joinChildColumn;
 }

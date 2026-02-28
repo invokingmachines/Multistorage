@@ -10,6 +10,9 @@ import com.invokingmachines.multistorage.repository.MetaTableRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -40,9 +43,13 @@ public class MetaDiscoveryService {
 
     private MetaDiscoveryDto.TableDiscoveryDto toTableDiscovery(MetaTableEntity t) {
         List<MetaColumnEntity> columns = metaColumnRepository.findByTableId(t.getId());
-        List<String> relations = metaRelationRepository.findByOneTableIdAndActiveTrue(t.getId()).stream()
+        List<String> relations = new ArrayList<>();
+        metaRelationRepository.findByOneTableIdAndActiveTrue(t.getId()).stream()
+                .map(r -> r.getOneTable().getAlias() + "To" + StringUtils.capitalize(r.getManyTable().getAlias()))
+                .forEach(relations::add);
+        metaRelationRepository.findByManyTableIdAndActiveTrue(t.getId()).stream()
                 .map(MetaRelationEntity::getName)
-                .toList();
+                .forEach(relations::add);
         List<MetaDiscoveryDto.ColumnDiscoveryDto> selectable = columns.stream()
                 .filter(c -> Boolean.TRUE.equals(c.getReadable()))
                 .map(this::toColumnDiscovery)
