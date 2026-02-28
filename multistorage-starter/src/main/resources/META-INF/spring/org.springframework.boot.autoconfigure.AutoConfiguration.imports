@@ -1,0 +1,2 @@
+com.invokingmachines.multistorage.autoconfigure.MultistorageAutoConfiguration
+com.invokingmachines.multistorage.autoconfigure.OpenApiConfiguration

@@ -1,0 +1,66 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-meta-relation
+      author: multistorage
+      changes:
+        - createTable:
+            tableName: meta_relation
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: many_table_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_meta_relation_many_table
+                    references: meta_table(id)
+              - column:
+                  name: one_table_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_meta_relation_one_table
+                    references: meta_table(id)
+              - column:
+                  name: many_column
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: one_column
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: inverse_name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
