@@ -1,6 +1,5 @@
 package com.invokingmachines.multistorage.dto.meta;
 
-
 import lombok.Builder;
 import lombok.Data;
 
@@ -8,10 +7,10 @@ import lombok.Data;
 @Builder
 public class RelationMeta {
 
-    private String name;
-    private String childTable;
-    private String manyColumn;
-    private String oneColumn;
-    private String joinCurrentColumn;
-    private String joinChildColumn;
+    private String alias;
+    private String fromTable;
+    private String toTable;
+    private String fromColumn;
+    private String toColumn;
+    private boolean oneToMany;
 }

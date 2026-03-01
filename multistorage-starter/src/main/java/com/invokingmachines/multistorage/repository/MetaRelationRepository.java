@@ -9,11 +9,7 @@ import java.util.UUID;
 
 public interface MetaRelationRepository extends JpaRepository<MetaRelationEntity, UUID> {
 
-    List<MetaRelationEntity> findByManyTableId(UUID manyTableId);
+    List<MetaRelationEntity> findByFromTableIdAndActiveTrue(UUID fromTableId);
 
-    List<MetaRelationEntity> findByManyTableIdAndActiveTrue(UUID manyTableId);
-
-    List<MetaRelationEntity> findByOneTableIdAndActiveTrue(UUID oneTableId);
-
-    Optional<MetaRelationEntity> findByManyTableIdAndName(UUID manyTableId, String name);
+    Optional<MetaRelationEntity> findByFromTableIdAndAliasAndActiveTrue(UUID fromTableId, String alias);
 }

@@ -13,12 +13,12 @@ import java.time.Instant;
 @AllArgsConstructor
 public class MetaRelationDto {
 
-    private String manyTable;
-    private String oneTable;
-    private String manyColumn;
-    private String oneColumn;
-    private String name;
-    private String inverseName;
+    private String fromTable;
+    private String toTable;
+    private String fromColumn;
+    private String toColumn;
+    private boolean oneToMany;
+    private String alias;
     private Boolean active;
     private Instant createdAt;
     private Instant updatedAt;

@@ -12,14 +12,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/multistorage/api/search/discovery")
-@Tag(name = "Discovery", description = "Metadata available to the user: tables, selectable and searchable columns")
+@Tag(name = "Discovery", description = "Metadata available to the user: tables and columns")
 @RequiredArgsConstructor
 public class MetaDiscoveryController {
 
     private final MetaDiscoveryService metaDiscoveryService;
 
     @GetMapping
-    @Operation(summary = "List metadata", description = "Without table: all tables. With table (name or alias): only that table. Selectable = readable, searchable columns.")
+    @Operation(summary = "List metadata", description = "Without table: all tables. With table (name or alias): only that table. Each table has columns and relations.")
     public MetaDiscoveryDto discovery(@RequestParam(required = false) String table) {
         return metaDiscoveryService.getDiscovery(table);
     }

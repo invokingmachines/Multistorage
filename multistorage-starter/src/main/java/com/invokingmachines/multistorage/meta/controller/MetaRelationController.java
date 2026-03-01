@@ -20,27 +20,27 @@ public class MetaRelationController {
     private final MetaRelationCrudService service;
 
     @GetMapping("/tables/{tableRef}/relations")
-    @Operation(summary = "List relations by many-table (name or alias)")
-    public List<MetaRelationDto> listByManyTable(@PathVariable String tableRef) {
-        return service.findByManyTable(tableRef);
+    @Operation(summary = "List relations where from-table is the given table (name or alias)")
+    public List<MetaRelationDto> listByFromTable(@PathVariable String tableRef) {
+        return service.findByFromTable(tableRef);
     }
 
-    @GetMapping("/tables/{tableRef}/relations/{relationName}")
-    @Operation(summary = "Get relation by many-table and relation name")
-    public MetaRelationDto get(@PathVariable String tableRef, @PathVariable String relationName) {
-        return service.getByManyTableAndName(tableRef, relationName);
+    @GetMapping("/tables/{tableRef}/relations/{alias}")
+    @Operation(summary = "Get relation by from-table and alias")
+    public MetaRelationDto get(@PathVariable String tableRef, @PathVariable String alias) {
+        return service.getByFromTableAndAlias(tableRef, alias);
     }
 
     @PostMapping("/relations")
-    @Operation(summary = "Upsert meta relation: find by manyTable + name, create if missing else update.")
+    @Operation(summary = "Upsert meta relation: find by fromTable + alias, create if missing else update.")
     public MetaRelationDto upsert(@RequestBody MetaRelationRequest request) {
         return service.upsert(request);
     }
 
-    @DeleteMapping("/tables/{tableRef}/relations/{relationName}")
+    @DeleteMapping("/tables/{tableRef}/relations/{alias}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Delete meta relation")
-    public void delete(@PathVariable String tableRef, @PathVariable String relationName) {
-        service.delete(tableRef, relationName);
+    public void delete(@PathVariable String tableRef, @PathVariable String alias) {
+        service.delete(tableRef, alias);
     }
 }

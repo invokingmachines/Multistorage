@@ -2,6 +2,7 @@ package com.invokingmachines.multistorage.query;
 
 import com.invokingmachines.multistorage.dto.query.Query;
 import com.invokingmachines.multistorage.meta.MetaProvider;
+import com.invokingmachines.multistorage.util.NamingUtils;
 import com.invokingmachines.multistorage.meta.dto.MetaRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +36,8 @@ public class DynamicEntityControllerRegistrar implements ApplicationRunner, Orde
         Method searchMethod = getSearchMethod();
 
         tables.keySet().forEach(entityAlias -> {
-            RequestMappingInfo mapping = RequestMappingInfo.paths("/multistorage/api/" + entityAlias + "/search")
+            String pathSegment = NamingUtils.toPathSegment(entityAlias);
+            RequestMappingInfo mapping = RequestMappingInfo.paths("/multistorage/api/" + pathSegment + "/search")
                     .methods(RequestMethod.POST)
                     .consumes(MediaType.APPLICATION_JSON_VALUE)
                     .produces(MediaType.APPLICATION_JSON_VALUE)

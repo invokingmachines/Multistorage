@@ -2,6 +2,7 @@ package com.invokingmachines.multistorage.query;
 
 import com.invokingmachines.multistorage.dto.query.Query;
 import com.invokingmachines.multistorage.query.service.SearchService;
+import com.invokingmachines.multistorage.util.NamingUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,8 +25,9 @@ public class EntitySearchHandler {
 
     @ResponseBody
     public ResponseEntity<List<Map<String, Object>>> search(HttpServletRequest request, @RequestBody Query query) {
-        String entity = extractEntity(request.getRequestURI());
-        List<Map<String, Object>> result = searchService.search(entity, query);
+        String pathSegment = extractEntity(request.getRequestURI());
+        String entityAlias = NamingUtils.fromPathSegment(pathSegment);
+        List<Map<String, Object>> result = searchService.search(entityAlias, query);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(result);

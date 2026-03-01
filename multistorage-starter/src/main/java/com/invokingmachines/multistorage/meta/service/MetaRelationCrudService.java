@@ -19,59 +19,59 @@ public class MetaRelationCrudService {
     private final MetaRelationRepository repository;
     private final MetaTableCrudService metaTableCrudService;
 
-    public List<MetaRelationDto> findByManyTable(String manyTableRef) {
-        MetaTableEntity manyTable = metaTableCrudService.resolveTable(manyTableRef).orElseThrow();
-        return repository.findByManyTableId(manyTable.getId()).stream()
+    public List<MetaRelationDto> findByFromTable(String fromTableRef) {
+        MetaTableEntity fromTable = metaTableCrudService.resolveTable(fromTableRef).orElseThrow();
+        return repository.findByFromTableIdAndActiveTrue(fromTable.getId()).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
-    public MetaRelationDto getByManyTableAndName(String manyTableRef, String relationName) {
-        MetaTableEntity manyTable = metaTableCrudService.resolveTable(manyTableRef).orElseThrow();
-        return repository.findByManyTableIdAndName(manyTable.getId(), relationName)
+    public MetaRelationDto getByFromTableAndAlias(String fromTableRef, String alias) {
+        MetaTableEntity fromTable = metaTableCrudService.resolveTable(fromTableRef).orElseThrow();
+        return repository.findByFromTableIdAndAliasAndActiveTrue(fromTable.getId(), alias)
                 .map(this::toDto)
                 .orElseThrow();
     }
 
     @Transactional
     public MetaRelationDto upsert(MetaRelationRequest request) {
-        MetaTableEntity manyTable = metaTableCrudService.resolveTable(request.getManyTable()).orElseThrow();
-        MetaTableEntity oneTable = metaTableCrudService.resolveTable(request.getOneTable()).orElseThrow();
-        return repository.findByManyTableIdAndName(manyTable.getId(), request.getName())
+        MetaTableEntity fromTable = metaTableCrudService.resolveTable(request.getFromTable()).orElseThrow();
+        MetaTableEntity toTable = metaTableCrudService.resolveTable(request.getToTable()).orElseThrow();
+        return repository.findByFromTableIdAndAliasAndActiveTrue(fromTable.getId(), request.getAlias())
                 .map(e -> {
-                    e.setManyColumn(request.getManyColumn());
-                    e.setOneColumn(request.getOneColumn());
-                    if (request.getInverseName() != null) e.setInverseName(request.getInverseName());
+                    e.setToTable(toTable);
+                    e.setFromColumn(request.getFromColumn());
+                    e.setToColumn(request.getToColumn());
+                    e.setOneToMany(request.getOneToMany() != null ? request.getOneToMany() : true);
                     if (request.getActive() != null) e.setActive(request.getActive());
-                    if (request.getManyTable() != null) e.setManyTable(metaTableCrudService.resolveTable(request.getManyTable()).orElseThrow());
-                    if (request.getOneTable() != null) e.setOneTable(metaTableCrudService.resolveTable(request.getOneTable()).orElseThrow());
                     return toDto(repository.save(e));
                 })
                 .orElseGet(() -> toDto(repository.save(MetaRelationEntity.builder()
-                        .manyTable(manyTable)
-                        .oneTable(oneTable)
-                        .manyColumn(request.getManyColumn())
-                        .oneColumn(request.getOneColumn())
-                        .name(request.getName())
+                        .fromTable(fromTable)
+                        .toTable(toTable)
+                        .fromColumn(request.getFromColumn())
+                        .toColumn(request.getToColumn())
+                        .oneToMany(request.getOneToMany() != null ? request.getOneToMany() : true)
+                        .alias(request.getAlias())
                         .active(request.getActive() != null ? request.getActive() : true)
                         .build())));
     }
 
     @Transactional
-    public void delete(String manyTableRef, String relationName) {
-        MetaTableEntity manyTable = metaTableCrudService.resolveTable(manyTableRef).orElseThrow();
-        MetaRelationEntity e = repository.findByManyTableIdAndName(manyTable.getId(), relationName).orElseThrow();
+    public void delete(String fromTableRef, String alias) {
+        MetaTableEntity fromTable = metaTableCrudService.resolveTable(fromTableRef).orElseThrow();
+        MetaRelationEntity e = repository.findByFromTableIdAndAliasAndActiveTrue(fromTable.getId(), alias).orElseThrow();
         repository.delete(e);
     }
 
     private MetaRelationDto toDto(MetaRelationEntity e) {
         return MetaRelationDto.builder()
-                .manyTable(e.getManyTable().getAlias())
-                .oneTable(e.getOneTable().getAlias())
-                .manyColumn(e.getManyColumn())
-                .oneColumn(e.getOneColumn())
-                .name(e.getName())
-                .inverseName(e.getInverseName())
+                .fromTable(e.getFromTable().getAlias())
+                .toTable(e.getToTable().getAlias())
+                .fromColumn(e.getFromColumn())
+                .toColumn(e.getToColumn())
+                .oneToMany(Boolean.TRUE.equals(e.getOneToMany()))
+                .alias(e.getAlias())
                 .active(e.getActive())
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())

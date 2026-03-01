@@ -1,5 +1,6 @@
 package com.invokingmachines.multistorage.query.service;
 
+import com.invokingmachines.multistorage.dto.meta.QueryMeta;
 import com.invokingmachines.multistorage.query.dto.CompiledQuery;
 import com.invokingmachines.multistorage.dto.query.Query;
 import com.invokingmachines.multistorage.meta.MetaProvider;
@@ -19,7 +20,7 @@ public class SearchService {
     private final QueryExecutionService queryExecutionService;
 
     public List<Map<String, Object>> search(String target, Query query) {
-        var meta = metaProvider.getMeta(MetaRequest.builder().build());
+        QueryMeta meta = metaProvider.getMeta(MetaRequest.builder().build());
         CompiledQuery compiled = queryCompiler.compile(query, meta, target);
         List<Map<String, Object>> rows = queryExecutionService.execute(compiled);
         return ResultNestingTransformer.nestRelationFields(rows, compiled.getExpandedSelect(), meta, target);

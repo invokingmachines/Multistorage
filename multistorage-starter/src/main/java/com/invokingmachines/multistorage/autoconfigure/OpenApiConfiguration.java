@@ -26,6 +26,7 @@ public class OpenApiConfiguration {
                 .group("admin")
                 .displayName("Admin: Meta configuration")
                 .pathsToMatch("/multistorage/admin/**")
+                .pathsToExclude("/multistorage/api/**")
                 .build();
     }
 
@@ -35,6 +36,7 @@ public class OpenApiConfiguration {
                 .group("user")
                 .displayName("User: Discovery & Search")
                 .pathsToMatch("/multistorage/api/**")
+                .pathsToExclude("/multistorage/admin/**")
                 .build();
     }
 }

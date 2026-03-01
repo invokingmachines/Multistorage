@@ -9,6 +9,7 @@ import com.invokingmachines.multistorage.entity.MetaTableEntity;
 import com.invokingmachines.multistorage.repository.MetaColumnRepository;
 import com.invokingmachines.multistorage.repository.MetaRelationRepository;
 import com.invokingmachines.multistorage.repository.MetaTableRepository;
+import com.invokingmachines.multistorage.util.NamingUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -37,7 +38,7 @@ public class MetaSyncService {
                 .orElseGet(() -> {
                     MetaTableEntity e = MetaTableEntity.builder()
                             .name(t.getName())
-                            .alias(t.getName())
+                            .alias(NamingUtils.toPascalCase(t.getName()))
                             .build();
                     return metaTableRepository.save(e);
                 });
@@ -67,24 +68,31 @@ public class MetaSyncService {
         for (Relation fk : childTable.getRelations()) {
             MetaTableEntity oneTableMeta = metaTableRepository.findByName(fk.getReferencedTable()).orElse(null);
             if (oneTableMeta == null) continue;
-            String defaultName = manyTableMeta.getAlias() + "To" + StringUtils.capitalize(oneTableMeta.getAlias());
-            String defaultInverseName = oneTableMeta.getAlias() + "To" + StringUtils.capitalize(manyTableMeta.getAlias());
-            metaRelationRepository.findByManyTableIdAndName(manyTableMeta.getId(), defaultName)
-                    .map(existing -> {
-                        existing.setManyColumn(fk.getForeignKeyColumn());
-                        existing.setOneColumn(fk.getReferencedColumn());
-                        existing.setInverseName(defaultInverseName);
-                        return metaRelationRepository.save(existing);
-                    })
-                    .orElseGet(() -> metaRelationRepository.save(MetaRelationEntity.builder()
-                            .manyTable(manyTableMeta)
-                            .oneTable(oneTableMeta)
-                            .manyColumn(fk.getForeignKeyColumn())
-                            .oneColumn(fk.getReferencedColumn())
-                            .name(defaultName)
-                            .inverseName(defaultInverseName)
-                            .active(true)
-                            .build()));
+            String parentToChildPascal = oneTableMeta.getAlias() + "To" + StringUtils.capitalize(manyTableMeta.getAlias());
+            String childToParentPascal = manyTableMeta.getAlias() + "To" + StringUtils.capitalize(oneTableMeta.getAlias());
+
+            saveOrUpdateRelation(oneTableMeta, manyTableMeta, fk.getReferencedColumn(), fk.getForeignKeyColumn(), true, NamingUtils.uncapitalize(parentToChildPascal));
+            saveOrUpdateRelation(manyTableMeta, oneTableMeta, fk.getForeignKeyColumn(), fk.getReferencedColumn(), false, NamingUtils.uncapitalize(childToParentPascal));
         }
+    }
+
+    private void saveOrUpdateRelation(MetaTableEntity fromTable, MetaTableEntity toTable, String fromColumn, String toColumn, boolean oneToMany, String alias) {
+        metaRelationRepository.findByFromTableIdAndAliasAndActiveTrue(fromTable.getId(), alias)
+                .map(existing -> {
+                    existing.setToTable(toTable);
+                    existing.setFromColumn(fromColumn);
+                    existing.setToColumn(toColumn);
+                    existing.setOneToMany(oneToMany);
+                    return metaRelationRepository.save(existing);
+                })
+                .orElseGet(() -> metaRelationRepository.save(MetaRelationEntity.builder()
+                        .fromTable(fromTable)
+                        .toTable(toTable)
+                        .fromColumn(fromColumn)
+                        .toColumn(toColumn)
+                        .oneToMany(oneToMany)
+                        .alias(alias)
+                        .active(true)
+                        .build()));
     }
 }

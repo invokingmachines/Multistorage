@@ -11,7 +11,6 @@ import com.invokingmachines.multistorage.meta.dto.MetaRequest;
 import com.invokingmachines.multistorage.repository.MetaColumnRepository;
 import com.invokingmachines.multistorage.repository.MetaRelationRepository;
 import com.invokingmachines.multistorage.repository.MetaTableRepository;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,7 +50,7 @@ public class DefaultMetaProvider implements MetaProvider {
         List<MetaTableEntity> tables = metaTableRepository.findAll();
         Map<String, TableMeta> tableMap = tables.stream()
                 .filter(t -> t.getAlias() != null && !t.getAlias().isBlank())
-                .collect(Collectors.toMap(MetaTableEntity::getAlias, this::toTableMeta));
+                .collect(Collectors.toMap(MetaTableEntity::getName, this::toTableMeta));
         return QueryMeta.builder()
                 .tables(tableMap)
                 .build();
@@ -61,13 +60,9 @@ public class DefaultMetaProvider implements MetaProvider {
         String tableAlias = t.getAlias();
         Map<String, ColumnMeta> columns = metaColumnRepository.findByTableId(t.getId()).stream()
                 .filter(c -> c.getAlias() != null && !c.getAlias().isBlank())
-                .collect(Collectors.toMap(MetaColumnEntity::getAlias, this::toColumnMeta));
-        Map<String, RelationMeta> fromOne = metaRelationRepository.findByOneTableIdAndActiveTrue(t.getId()).stream()
-                .collect(Collectors.toMap(r -> oneToManyRelationName(r), this::toRelationMetaFromOne));
-        Map<String, RelationMeta> fromMany = metaRelationRepository.findByManyTableIdAndActiveTrue(t.getId()).stream()
-                .collect(Collectors.toMap(MetaRelationEntity::getName, this::toRelationMetaFromMany));
-        Map<String, RelationMeta> relations = new java.util.LinkedHashMap<>(fromOne);
-        fromMany.forEach(relations::putIfAbsent);
+                .collect(Collectors.toMap(MetaColumnEntity::getName, this::toColumnMeta));
+        Map<String, RelationMeta> relations = metaRelationRepository.findByFromTableIdAndActiveTrue(t.getId()).stream()
+                .collect(Collectors.toMap(MetaRelationEntity::getAlias, this::toRelationMeta));
         return TableMeta.builder()
                 .name(t.getName())
                 .alias(tableAlias)
@@ -81,36 +76,17 @@ public class DefaultMetaProvider implements MetaProvider {
                 .name(c.getName())
                 .alias(c.getAlias())
                 .dataType(c.getDataType())
-                .readable(Boolean.TRUE.equals(c.getReadable()))
-                .searchable(Boolean.TRUE.equals(c.getSearchable()))
                 .build();
     }
 
-    private static String oneToManyRelationName(MetaRelationEntity r) {
-        return r.getInverseName() != null && !r.getInverseName().isBlank()
-                ? r.getInverseName()
-                : r.getOneTable().getAlias() + "To" + StringUtils.capitalize(r.getManyTable().getAlias());
-    }
-
-    private RelationMeta toRelationMetaFromOne(MetaRelationEntity r) {
+    private RelationMeta toRelationMeta(MetaRelationEntity r) {
         return RelationMeta.builder()
-                .name(oneToManyRelationName(r))
-                .childTable(r.getManyTable().getName())
-                .manyColumn(r.getManyColumn())
-                .oneColumn(r.getOneColumn())
-                .joinCurrentColumn(r.getOneColumn())
-                .joinChildColumn(r.getManyColumn())
-                .build();
-    }
-
-    private RelationMeta toRelationMetaFromMany(MetaRelationEntity r) {
-        return RelationMeta.builder()
-                .name(r.getName())
-                .childTable(r.getOneTable().getName())
-                .manyColumn(r.getManyColumn())
-                .oneColumn(r.getOneColumn())
-                .joinCurrentColumn(r.getManyColumn())
-                .joinChildColumn(r.getOneColumn())
+                .alias(r.getAlias())
+                .fromTable(r.getFromTable().getName())
+                .toTable(r.getToTable().getName())
+                .fromColumn(r.getFromColumn())
+                .toColumn(r.getToColumn())
+                .oneToMany(Boolean.TRUE.equals(r.getOneToMany()))
                 .build();
     }
 }

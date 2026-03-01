@@ -2,6 +2,7 @@ package com.invokingmachines.multistorage.query;
 
 import com.invokingmachines.multistorage.meta.MetaProvider;
 import com.invokingmachines.multistorage.meta.dto.MetaRequest;
+import com.invokingmachines.multistorage.util.NamingUtils;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
@@ -47,7 +48,7 @@ public class EntitySearchOpenApiCustomizer implements GlobalOpenApiCustomizer {
             String tagName = tagName(entityAlias);
             openApi.addTagsItem(new Tag().name(tagName).description(entityAlias + " search API"));
 
-            String path = "/multistorage/api/" + entityAlias + "/search";
+            String path = "/multistorage/api/" + NamingUtils.toPathSegment(entityAlias) + "/search";
             Schema<?> querySchema = new Schema<>().type("object").description("Query: select, where");
             MediaType requestMediaType = new MediaType()
                     .schema(querySchema)

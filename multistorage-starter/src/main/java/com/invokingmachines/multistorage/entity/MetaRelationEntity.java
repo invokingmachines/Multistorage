@@ -20,24 +20,24 @@ public class MetaRelationEntity {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "many_table_id", nullable = false)
-    private MetaTableEntity manyTable;
+    @JoinColumn(name = "from_table_id", nullable = false)
+    private MetaTableEntity fromTable;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "one_table_id", nullable = false)
-    private MetaTableEntity oneTable;
+    @JoinColumn(name = "to_table_id", nullable = false)
+    private MetaTableEntity toTable;
 
-    @Column(name = "many_column", nullable = false)
-    private String manyColumn;
+    @Column(name = "from_column", nullable = false)
+    private String fromColumn;
 
-    @Column(name = "one_column", nullable = false)
-    private String oneColumn;
+    @Column(name = "to_column", nullable = false)
+    private String toColumn;
 
-    @Column(nullable = false)
-    private String name;
+    @Column(name = "is_one_to_many", nullable = false)
+    private Boolean oneToMany;
 
-    @Column(name = "inverse_name")
-    private String inverseName;
+    @Column(name = "alias", nullable = false)
+    private String alias;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

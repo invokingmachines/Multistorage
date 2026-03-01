@@ -17,19 +17,14 @@ public final class ResultNestingTransformer {
                                                                 List<List<String>> expandedSelect,
                                                                 QueryMeta meta,
                                                                 String target) {
-        if (expandedSelect == null || expandedSelect.isEmpty())
-            return rows;
+        String tableName = QueryCompiler.resolveTargetToTableName(meta, target);
         List<String> relationPrefixes = relationPrefixesFrom(expandedSelect);
         List<List<String>> relationChains = relationChainsFrom(expandedSelect);
         if (!relationChains.isEmpty()) {
-            return nestRecursive(rows, relationChains, meta, target);
+            return nestRecursive(rows, relationChains, meta, tableName);
         }
         if (relationPrefixes.isEmpty()) return rows;
         return nestFlat(rows, relationPrefixes);
-    }
-
-    private static boolean isToMany(RelationMeta rel) {
-        return rel.getOneColumn() != null && rel.getOneColumn().equals(rel.getJoinCurrentColumn());
     }
 
     private static List<String> relationsAtDepth(List<List<String>> relationChains, int depth) {
@@ -48,32 +43,24 @@ public final class ResultNestingTransformer {
                 .toList();
     }
 
-    private static boolean toMany(QueryMeta meta, String target, List<String> path, String relationName) {
-        TableMeta table = QueryCompiler.resolveTableByRelationChainStatic(meta, target, path);
-        RelationMeta rel = table != null ? table.getRelations().get(relationName) : null;
-        return rel != null && isToMany(rel);
-    }
-
     private static List<String> relationPrefixesFrom(List<List<String>> expandedSelect) {
-        if (expandedSelect == null) return List.of();
         return expandedSelect.stream()
-                .filter(path -> path != null && path.size() > 1)
+                .filter(path -> path.size() > 1)
                 .map(path -> path.get(0))
                 .distinct()
                 .toList();
     }
 
     private static List<List<String>> relationChainsFrom(List<List<String>> expandedSelect) {
-        if (expandedSelect == null) return List.of();
         return expandedSelect.stream()
-                .filter(path -> path != null && path.size() >= 2)
+                .filter(path -> path.size() >= 2)
                 .map(path -> (List<String>) new ArrayList<>(path.subList(0, path.size() - 1)))
                 .distinct()
                 .sorted(comparingInt(List::size))
                 .toList();
     }
 
-    private static List<Map<String, Object>> nestRecursive(List<Map<String, Object>> rows, List<List<String>> relationChains, QueryMeta meta, String target) {
+    private static List<Map<String, Object>> nestRecursive(List<Map<String, Object>> rows, List<List<String>> relationChains, QueryMeta meta, String tableName) {
         List<String> allPrefixes = relationChains.stream().flatMap(List::stream).distinct().toList();
         List<RowSplit> splits = rows.stream()
                 .map(row -> splitRowWithChains(row, allPrefixes))
@@ -82,40 +69,38 @@ public final class ResultNestingTransformer {
                 .collect(Collectors.groupingBy(s -> s.rootKey));
         List<String> rootRels = relationsAtDepth(relationChains, 0);
         return byRoot.values().stream()
-                .map(group -> buildRootWithChildren(group, rootRels, relationChains, meta, target))
+                .map(group -> buildRootWithChildren(group, rootRels, relationChains, meta, tableName))
                 .collect(Collectors.toList());
     }
 
-    private static Map<String, Object> buildRootWithChildren(List<RowSplit> group, List<String> rootRels, List<List<String>> relationChains, QueryMeta meta, String target) {
+    private static Map<String, Object> buildRootWithChildren(List<RowSplit> group, List<String> rootRels, List<List<String>> relationChains, QueryMeta meta, String rootTableName) {
         Map<String, Object> root = new LinkedHashMap<>(group.get(0).root);
         for (String rel : rootRels) {
-            Object value = buildValueForRelation(group, 0, rel, List.of(), relationChains, meta, target);
-            if (value != null) root.put(rel, value);
+            root.put(rel, buildValueForRelation(group, 0, rel, List.of(), relationChains, meta, rootTableName));
         }
         return root;
     }
 
     private static Object buildValueForRelation(List<RowSplit> rows, int depth, String relationName, List<String> path,
-                                                 List<List<String>> relationChains, QueryMeta meta, String target) {
+                                                 List<List<String>> relationChains, QueryMeta meta, String rootTableName) {
+        TableMeta fromTable = QueryCompiler.resolveTableByRelationChainStatic(meta, rootTableName, path);
+        RelationMeta rel = fromTable.getRelations().get(relationName);
+        boolean many = rel.isOneToMany();
+        String childTableName = rel.getToTable();
         Map<String, List<RowSplit>> byKey = rows.stream()
-                .collect(Collectors.groupingBy(r -> mapKey(r.nestedByPrefix.getOrDefault(relationName, Map.of()))));
-        boolean many = toMany(meta, target, path, relationName);
+                .collect(Collectors.groupingBy(r -> mapKey(r.nestedByPrefix.get(relationName))));
         List<Object> list = byKey.entrySet().stream()
                 .map(e -> {
-                    Map<String, Object> obj = new LinkedHashMap<>(e.getValue().get(0).nestedByPrefix.getOrDefault(relationName, new LinkedHashMap<>()));
-                    if (isEmptyNested(obj)) return null;
-                    List<String> childRels = childRelations(relationChains, depth, relationName);
+                    Map<String, Object> obj = new LinkedHashMap<>(e.getValue().get(0).nestedByPrefix.get(relationName));
                     List<String> childPath = new ArrayList<>(path);
                     childPath.add(relationName);
-                    for (String childRel : childRels) {
-                        Object childVal = buildValueForRelation(e.getValue(), depth + 1, childRel, childPath, relationChains, meta, target);
-                        if (childVal != null) obj.put(childRel, childVal);
+                    for (String childRel : childRelations(relationChains, depth, relationName)) {
+                        obj.put(childRel, buildValueForRelation(e.getValue(), depth + 1, childRel, childPath, relationChains, meta, rootTableName));
                     }
                     return (Object) obj;
                 })
-                .filter(Objects::nonNull)
                 .toList();
-        return many ? list : (list.isEmpty() ? null : list.get(0));
+        return many ? list : list.get(0);
     }
 
     private static RowSplit splitRowWithChains(Map<String, Object> row, List<String> allPrefixes) {
@@ -123,13 +108,9 @@ public final class ResultNestingTransformer {
         Map<String, Map<String, Object>> nestedByPrefix = new LinkedHashMap<>();
         for (String key : row.keySet()) {
             Object value = row.get(key);
-            String matched = findRelationPrefix(key, allPrefixes);
-            if (matched != null) {
-                String fieldName = uncapitalize(key.substring(matched.length()));
-                nestedByPrefix.computeIfAbsent(matched, p -> new LinkedHashMap<>()).put(fieldName, value);
-            } else {
-                root.put(key, value);
-            }
+            tryFindRelationPrefix(key, allPrefixes).ifPresentOrElse(
+                    p -> nestedByPrefix.computeIfAbsent(p, x -> new LinkedHashMap<>()).put(uncapitalize(key.substring(p.length())), value),
+                    () -> root.put(key, value));
         }
         String rootKey = mapKey(root);
         return new RowSplit(root, nestedByPrefix, rootKey);
@@ -159,13 +140,9 @@ public final class ResultNestingTransformer {
         Map<String, Object> nested = new LinkedHashMap<>();
         for (String key : row.keySet()) {
             Object value = row.get(key);
-            String prefix = findRelationPrefix(key, relationPrefixes);
-            if (prefix != null) {
-                String fieldName = uncapitalize(key.substring(prefix.length()));
-                nested.put(prefix + "." + fieldName, value);
-            } else {
-                root.put(key, value);
-            }
+            tryFindRelationPrefix(key, relationPrefixes).ifPresentOrElse(
+                    p -> nested.put(p + "." + uncapitalize(key.substring(p.length())), value),
+                    () -> root.put(key, value));
         }
         String rootKey = mapKey(root);
         Map<String, Map<String, Object>> nestedByPrefix = groupNestedByPrefix(nested);
@@ -183,11 +160,15 @@ public final class ResultNestingTransformer {
         return byPrefix;
     }
 
-    private static String findRelationPrefix(String key, List<String> relationPrefixes) {
+    private static Optional<String> tryFindRelationPrefix(String key, List<String> relationPrefixes) {
         return relationPrefixes.stream()
                 .filter(p -> key.startsWith(p) && key.length() > p.length() && Character.isUpperCase(key.charAt(p.length())))
-                .findFirst()
-                .orElse(null);
+                .findFirst();
+    }
+
+    private static String findRelationPrefix(String key, List<String> relationPrefixes) {
+        return tryFindRelationPrefix(key, relationPrefixes)
+                .orElseThrow(() -> new IllegalArgumentException("No relation prefix found for key: " + key));
     }
 
     private static String uncapitalize(String s) {
@@ -195,7 +176,7 @@ public final class ResultNestingTransformer {
     }
 
     private static boolean isEmptyNested(Map<String, Object> m) {
-        return m == null || m.values().stream().allMatch(Objects::isNull);
+        return m.isEmpty();
     }
 
     private record Split(String rootKey, Map<String, Object> root, Map<String, Map<String, Object>> nestedByPrefix) {}
@@ -218,7 +199,7 @@ public final class ResultNestingTransformer {
             Map<String, Object> result = new LinkedHashMap<>(root);
             for (String prefix : relationPrefixes) {
                 List<Map<String, Object>> items = nestedList.stream()
-                        .map(m -> m.getOrDefault(prefix, Map.of()))
+                        .map(m -> m.get(prefix))
                         .filter(n -> !isEmptyNested(n))
                         .map(n -> (Map<String, Object>) new LinkedHashMap<>(n))
                         .toList();

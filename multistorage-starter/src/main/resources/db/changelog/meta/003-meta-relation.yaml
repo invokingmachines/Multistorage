@@ -13,39 +13,39 @@ databaseChangeLog:
                     primaryKey: true
                     nullable: false
               - column:
-                  name: many_table_id
+                  name: from_table_id
                   type: UUID
                   constraints:
                     nullable: false
-                    foreignKeyName: fk_meta_relation_many_table
+                    foreignKeyName: fk_meta_relation_from_table
                     references: meta_table(id)
               - column:
-                  name: one_table_id
+                  name: to_table_id
                   type: UUID
                   constraints:
                     nullable: false
-                    foreignKeyName: fk_meta_relation_one_table
+                    foreignKeyName: fk_meta_relation_to_table
                     references: meta_table(id)
               - column:
-                  name: many_column
+                  name: from_column
                   type: VARCHAR(255)
                   constraints:
                     nullable: false
               - column:
-                  name: one_column
+                  name: to_column
                   type: VARCHAR(255)
                   constraints:
                     nullable: false
               - column:
-                  name: name
-                  type: VARCHAR(255)
+                  name: is_one_to_many
+                  type: BOOLEAN
                   constraints:
                     nullable: false
               - column:
-                  name: inverse_name
+                  name: alias
                   type: VARCHAR(255)
                   constraints:
-                    nullable: true
+                    nullable: false
               - column:
                   name: is_active
                   type: BOOLEAN

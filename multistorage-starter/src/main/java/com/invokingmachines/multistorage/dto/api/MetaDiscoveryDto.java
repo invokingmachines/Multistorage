@@ -21,10 +21,10 @@ public class MetaDiscoveryDto {
     @AllArgsConstructor
     public static class TableDiscoveryDto {
         private String alias;
+        private String pathSegment;
         private String name;
         private List<String> relations;
-        private List<ColumnDiscoveryDto> selectableColumns;
-        private List<ColumnDiscoveryDto> searchableColumns;
+        private List<ColumnDiscoveryDto> columns;
     }
 
     @Data

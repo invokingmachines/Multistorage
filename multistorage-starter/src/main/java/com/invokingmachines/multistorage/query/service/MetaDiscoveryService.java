@@ -7,12 +7,10 @@ import com.invokingmachines.multistorage.entity.MetaTableEntity;
 import com.invokingmachines.multistorage.repository.MetaColumnRepository;
 import com.invokingmachines.multistorage.repository.MetaRelationRepository;
 import com.invokingmachines.multistorage.repository.MetaTableRepository;
+import com.invokingmachines.multistorage.util.NamingUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import org.apache.commons.lang3.StringUtils;
-
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -34,38 +32,29 @@ public class MetaDiscoveryService {
 
     private Stream<MetaTableEntity> streamTables(String tableRef) {
         if (tableRef != null && !tableRef.isBlank()) {
-            return metaTableRepository.findByName(tableRef.strip())
-                    .or(() -> metaTableRepository.findByAlias(tableRef.strip()))
+            String stripped = tableRef.strip();
+            return metaTableRepository.findByName(stripped)
+                    .or(() -> metaTableRepository.findByAlias(stripped))
+                    .or(() -> metaTableRepository.findByAlias(NamingUtils.fromPathSegment(stripped)))
                     .stream();
         }
         return metaTableRepository.findAllWithNonBlankAlias().stream();
     }
 
     private MetaDiscoveryDto.TableDiscoveryDto toTableDiscovery(MetaTableEntity t) {
-        List<MetaColumnEntity> columns = metaColumnRepository.findByTableId(t.getId());
-        List<String> relations = new ArrayList<>();
-        metaRelationRepository.findByOneTableIdAndActiveTrue(t.getId()).stream()
-                .map(r -> r.getInverseName() != null && !r.getInverseName().isBlank()
-                        ? r.getInverseName()
-                        : r.getOneTable().getAlias() + "To" + StringUtils.capitalize(r.getManyTable().getAlias()))
-                .forEach(relations::add);
-        metaRelationRepository.findByManyTableIdAndActiveTrue(t.getId()).stream()
-                .map(MetaRelationEntity::getName)
-                .forEach(relations::add);
-        List<MetaDiscoveryDto.ColumnDiscoveryDto> selectable = columns.stream()
-                .filter(c -> Boolean.TRUE.equals(c.getReadable()))
-                .map(this::toColumnDiscovery)
+        List<MetaColumnEntity> columnEntities = metaColumnRepository.findByTableId(t.getId());
+        List<String> relations = metaRelationRepository.findByFromTableIdAndActiveTrue(t.getId()).stream()
+                .map(MetaRelationEntity::getAlias)
                 .toList();
-        List<MetaDiscoveryDto.ColumnDiscoveryDto> searchable = columns.stream()
-                .filter(c -> Boolean.TRUE.equals(c.getSearchable()))
+        List<MetaDiscoveryDto.ColumnDiscoveryDto> columns = columnEntities.stream()
                 .map(this::toColumnDiscovery)
                 .toList();
         return MetaDiscoveryDto.TableDiscoveryDto.builder()
                 .alias(t.getAlias())
+                .pathSegment(NamingUtils.toPathSegment(t.getAlias()))
                 .name(t.getName())
                 .relations(relations)
-                .selectableColumns(selectable)
-                .searchableColumns(searchable)
+                .columns(columns)
                 .build();
     }
 

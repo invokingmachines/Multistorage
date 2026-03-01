@@ -40,10 +40,12 @@ class JdbcQueryCompilerTest {
 
                                 .relation("children",
                                         RelationMeta.builder()
-                                                .name("children")
-                                                .manyColumn("parent_id")
-                                                .oneColumn("id")
-                                                .childTable("child_db")
+                                                .alias("children")
+                                                .fromTable("parent_db")
+                                                .toTable("child_db")
+                                                .fromColumn("id")
+                                                .toColumn("parent_id")
+                                                .oneToMany(true)
                                                 .build())
                                 .build())
                 .table("children",
