@@ -4,12 +4,14 @@ import com.invokingmachines.multistorage.dto.api.MetaRelationDto;
 import com.invokingmachines.multistorage.dto.api.MetaRelationRequest;
 import com.invokingmachines.multistorage.entity.MetaRelationEntity;
 import com.invokingmachines.multistorage.entity.MetaTableEntity;
+import com.invokingmachines.multistorage.repository.MetaColumnRepository;
 import com.invokingmachines.multistorage.repository.MetaRelationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,6 +20,7 @@ public class MetaRelationCrudService {
 
     private final MetaRelationRepository repository;
     private final MetaTableCrudService metaTableCrudService;
+    private final MetaColumnRepository metaColumnRepository;
 
     public List<MetaRelationDto> findByFromTable(String fromTableRef) {
         MetaTableEntity fromTable = metaTableCrudService.resolveTable(fromTableRef).orElseThrow();
@@ -37,6 +40,9 @@ public class MetaRelationCrudService {
     public MetaRelationDto upsert(MetaRelationRequest request) {
         MetaTableEntity fromTable = metaTableCrudService.resolveTable(request.getFromTable()).orElseThrow();
         MetaTableEntity toTable = metaTableCrudService.resolveTable(request.getToTable()).orElseThrow();
+        if (request.getAlias() != null) {
+            validateRelationAliasNotConflictingWithColumnName(fromTable.getId(), request.getAlias());
+        }
         return repository.findByFromTableIdAndAliasAndActiveTrue(fromTable.getId(), request.getAlias())
                 .map(e -> {
                     e.setToTable(toTable);
@@ -62,6 +68,16 @@ public class MetaRelationCrudService {
         MetaTableEntity fromTable = metaTableCrudService.resolveTable(fromTableRef).orElseThrow();
         MetaRelationEntity e = repository.findByFromTableIdAndAliasAndActiveTrue(fromTable.getId(), alias).orElseThrow();
         repository.delete(e);
+    }
+
+    private void validateRelationAliasNotConflictingWithColumnName(UUID fromTableId, String proposedAlias) {
+        if (proposedAlias == null || proposedAlias.isBlank()) return;
+        boolean nameConflict = metaColumnRepository.findByTableId(fromTableId).stream()
+                .anyMatch(c -> proposedAlias.equals(c.getName()));
+        if (nameConflict) {
+            throw new IllegalArgumentException(
+                    "Relation alias '" + proposedAlias + "' conflicts with existing column name. Alias must be unique among names and aliases.");
+        }
     }
 
     private MetaRelationDto toDto(MetaRelationEntity e) {

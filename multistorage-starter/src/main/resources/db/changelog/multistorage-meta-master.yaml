@@ -5,3 +5,5 @@ databaseChangeLog:
       file: classpath:db/changelog/meta/002-meta-column.yaml
   - include:
       file: classpath:db/changelog/meta/003-meta-relation.yaml
+  - include:
+      file: classpath:db/changelog/meta/004-meta-relation-cascade.yaml

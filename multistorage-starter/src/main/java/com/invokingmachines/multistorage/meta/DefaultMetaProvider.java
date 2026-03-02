@@ -4,6 +4,7 @@ import com.invokingmachines.multistorage.dto.meta.ColumnMeta;
 import com.invokingmachines.multistorage.dto.meta.QueryMeta;
 import com.invokingmachines.multistorage.dto.meta.RelationMeta;
 import com.invokingmachines.multistorage.dto.meta.TableMeta;
+import com.invokingmachines.multistorage.pipeline.CascadeType;
 import com.invokingmachines.multistorage.entity.MetaColumnEntity;
 import com.invokingmachines.multistorage.entity.MetaRelationEntity;
 import com.invokingmachines.multistorage.entity.MetaTableEntity;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -48,9 +50,16 @@ public class DefaultMetaProvider implements MetaProvider {
 
     private QueryMeta loadFromStore() {
         List<MetaTableEntity> tables = metaTableRepository.findAll();
-        Map<String, TableMeta> tableMap = tables.stream()
+        Map<String, TableMeta> tableMap = new LinkedHashMap<>();
+        tables.stream()
                 .filter(t -> t.getAlias() != null && !t.getAlias().isBlank())
-                .collect(Collectors.toMap(MetaTableEntity::getName, this::toTableMeta));
+                .forEach(t -> {
+                    TableMeta tm = toTableMeta(t);
+                    tableMap.put(t.getName(), tm);
+                    if (!t.getName().equals(t.getAlias())) {
+                        tableMap.put(t.getAlias(), tm);
+                    }
+                });
         return QueryMeta.builder()
                 .tables(tableMap)
                 .build();
@@ -58,9 +67,16 @@ public class DefaultMetaProvider implements MetaProvider {
 
     private TableMeta toTableMeta(MetaTableEntity t) {
         String tableAlias = t.getAlias();
-        Map<String, ColumnMeta> columns = metaColumnRepository.findByTableId(t.getId()).stream()
+        Map<String, ColumnMeta> columns = new LinkedHashMap<>();
+        metaColumnRepository.findByTableId(t.getId()).stream()
                 .filter(c -> c.getAlias() != null && !c.getAlias().isBlank())
-                .collect(Collectors.toMap(MetaColumnEntity::getName, this::toColumnMeta));
+                .forEach(c -> {
+                    ColumnMeta cm = toColumnMeta(c);
+                    columns.put(c.getName(), cm);
+                    if (!c.getName().equals(c.getAlias())) {
+                        columns.put(c.getAlias(), cm);
+                    }
+                });
         Map<String, RelationMeta> relations = metaRelationRepository.findByFromTableIdAndActiveTrue(t.getId()).stream()
                 .collect(Collectors.toMap(MetaRelationEntity::getAlias, this::toRelationMeta));
         return TableMeta.builder()
@@ -80,6 +96,12 @@ public class DefaultMetaProvider implements MetaProvider {
     }
 
     private RelationMeta toRelationMeta(MetaRelationEntity r) {
+        CascadeType cascade = CascadeType.NONE;
+        if (r.getCascadeType() != null && !r.getCascadeType().isBlank()) {
+            try {
+                cascade = CascadeType.valueOf(r.getCascadeType().toUpperCase());
+            } catch (IllegalArgumentException ignored) {}
+        }
         return RelationMeta.builder()
                 .alias(r.getAlias())
                 .fromTable(r.getFromTable().getName())
@@ -87,6 +109,7 @@ public class DefaultMetaProvider implements MetaProvider {
                 .fromColumn(r.getFromColumn())
                 .toColumn(r.getToColumn())
                 .oneToMany(Boolean.TRUE.equals(r.getOneToMany()))
+                .cascade(cascade)
                 .build();
     }
 }

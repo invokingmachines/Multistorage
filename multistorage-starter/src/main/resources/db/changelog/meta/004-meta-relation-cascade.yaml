@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-meta-relation-cascade
+      author: multistorage
+      changes:
+        - addColumn:
+            tableName: meta_relation
+            columns:
+              - column:
+                  name: cascade_type
+                  type: VARCHAR(32)

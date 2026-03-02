@@ -32,6 +32,10 @@ public class MetaTableCrudService {
 
     @Transactional
     public MetaTableDto upsert(MetaTableRequest request) {
+        String proposedAlias = request.getAlias() != null ? request.getAlias() : request.getName();
+        if (request.getAlias() != null || repository.findByName(request.getName()).isEmpty()) {
+            validateAliasNotConflictingWithName(proposedAlias, "table", name -> repository.findByName(name).isPresent());
+        }
         return repository.findByName(request.getName())
                 .map(e -> {
                     if (request.getAlias() != null) e.setAlias(request.getAlias());
@@ -39,8 +43,17 @@ public class MetaTableCrudService {
                 })
                 .orElseGet(() -> toDto(repository.save(MetaTableEntity.builder()
                         .name(request.getName())
-                        .alias(request.getAlias() != null ? request.getAlias() : request.getName())
+                        .alias(proposedAlias)
                         .build())));
+    }
+
+    private void validateAliasNotConflictingWithName(String proposedAlias, String entityType,
+                                                    java.util.function.Predicate<String> nameExists) {
+        if (proposedAlias == null || proposedAlias.isBlank()) return;
+        if (nameExists.test(proposedAlias)) {
+            throw new IllegalArgumentException(
+                    "Alias '" + proposedAlias + "' conflicts with existing " + entityType + " name. Alias must be unique among names and aliases.");
+        }
     }
 
     @Transactional

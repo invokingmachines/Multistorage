@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @AutoConfiguration
 @ComponentScan(basePackages = {
         "com.invokingmachines.multistorage.meta",
+        "com.invokingmachines.multistorage.pipeline",
         "com.invokingmachines.multistorage.query",
         "com.invokingmachines.multistorage.config"
 })

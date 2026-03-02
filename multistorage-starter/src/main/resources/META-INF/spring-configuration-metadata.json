@@ -1,0 +1,9 @@
+{
+  "properties": [
+    {
+      "name": "multistorage.scan.ignore-tables",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Additional table names to ignore when scanning the database. Default list always includes: databasechangelog, databasechangeloglock, meta_table, meta_column, meta_relation."
+    }
+  ]
+}

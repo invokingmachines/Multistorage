@@ -1,81 +1,108 @@
 # Multistorage
 
-Spring Boot starter that turns any application with a PostgreSQL database into a **CRUD-style API** with a unified request format: metadata (tables, columns, relations) is stored in the DB, search is expressed as JSON (select/where), and results are returned with nested relations resolved.
+Spring Boot starter that turns any application with a PostgreSQL database into a **dynamic entity API** driven by metadata stored in DB (`meta_table`, `meta_column`, `meta_relation`).
 
-**Why:** Get an API on top of an existing schema without writing controllers and DTOs for every entity; a single contract for frontends and integrations; room for customization (multi-tenancy, auth, validation, post-processing).
+**Why:** get an API on top of an existing schema without writing controllers/DTOs for every table, keep a single JSON contract for frontends/integrations, and customize behavior via validators and pre/post processors.
 
 ---
 
 ## Current features
 
-- **Dynamic Search API** — For each entity (by table alias from metadata), a `POST /multistorage/api/{entity}/search` endpoint is registered. Request body: JSON Query (select, where).
-- **Metadata engine** — Tables, columns, and relations are read from storage (`meta_table`, `meta_column`, `meta_relation`). Supports aliases, readable/searchable flags, and bidirectional relations (one/many, inverse name).
-- **Query → SQL** — Query is compiled to SQL using metadata: arbitrary-depth JOINs along relation chains, filters on fields at any nesting level, parameterized queries.
-- **Select:** Root `["*"]`, relation paths like `["relationName", "*"]`, recursive expansion of `*` to any depth (e.g. `["childToParent", "childToChild_meta", "*"]`).
-- **Where:** Criteria with operators (EQ, NE, GT, GTE, LT, LTE, IN, NIN, LIKE, ILIKE, NULL, NOT_NULL, BETWEEN), AND/OR logic, nested criteria, fields along relation chains (e.g. `["childToParent", "name"]`).
-- **Nested response** — Flat JDBC rows are turned into a tree: one-to-many → array, many-to-one → single object; multiple branches from root and arbitrary nesting depth are supported.
-- **Discovery** — `GET /multistorage/api/search/discovery?table=...` returns metadata for the client: list of tables, selectable and searchable columns (including via relations).
-- **Metadata Admin API** — CRUD for tables, columns, and relations: `/multistorage/admin/meta/...` (tables, tables/{ref}/columns, relations). Liquibase migrations create meta tables on startup.
-- **Metadata customization** — `MetaCustomizer` bean: alter `QueryMeta` before compilation (e.g. filter tables/columns by tenant or role). Request context is available via `MetaRequest` (principal, context).
-- **OpenAPI** — Endpoints under `/multistorage/api/**` are included in the docs; tags and search operations are generated per entity.
+- **Dynamic entity endpoints** — For each business table described by metadata:
+  - `POST /multistorage/api/{entity}/search`
+  - `POST /multistorage/api/{entity}` (upsert)
+  - `DELETE /multistorage/api/{entity}/{id}`
+- **Request pipeline** — all operations go through:
+  - receive request → validate request → preProcess handlers → operation → mapping to response → postProcess handlers
+- **Validation** — one validator per operation type:
+  - **Search**: checks that all referenced fields/relations exist in metadata
+  - **Upsert**: checks that all fields exist; nested updates are allowed only when relation cascade != `NONE`
+  - **Delete**: checks that target table exists
+  - You can override/extend validation by providing your own `RequestValidator<?>` beans.
+- **Cascade for nested upsert** — `meta_relation.cascade_type` controls whether nested entities can be persisted/updated:
+  - `NONE`, `PERSIST`, `MERGE`, `PERSIST_MERGE`
+- **Query → SQL** — search is compiled into parameterized SQL with JOINs via relation chains and typed parameters.
+- **Nested response** — DB returns flat rows, API returns a tree:
+  - one-to-many → array
+  - many-to-one → single object
+  - Search and upsert responses are returned in a nested structure.
+- **Discovery** — `GET /multistorage/api/search/discovery?table=...` returns metadata for the client (tables, columns, relations).
+- **Metadata Admin API** — CRUD for metadata: `/multistorage/admin/meta/...` (tables, columns, relations). Liquibase creates meta schema on startup.
+- **Metadata customization** — `MetaCustomizer` bean can modify `QueryMeta` before compilation.
+- **OpenAPI** — endpoints under `/multistorage/api/**` are included in Swagger; operations are generated per entity and include request/response examples.
 
 **Stack:** Spring Boot 4, WebMvc, Data JPA, Liquibase, PostgreSQL, springdoc-openapi.
 
 ---
 
-## Integration
+## Quickstart
 
-### 1. Dependency
+### 1) Add dependency
 
 ```xml
 <dependency>
-    <groupId>com.invokingmachines</groupId>
-    <artifactId>multistorage-starter</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+  <groupId>com.invokingmachines</groupId>
+  <artifactId>multistorage-starter</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
 </dependency>
 ```
 
 You also need: `spring-boot-starter-web`, `spring-boot-starter-data-jpa`, `liquibase-core`, `postgresql`, and optionally `springdoc-openapi-starter-webmvc-ui`.
 
-### 2. Database and metadata
+### 2) Run and open Swagger
 
-- Configure PostgreSQL and Liquibase in your application.
-- The starter brings its own meta migrations (`db/changelog/meta/`) that create `meta_table`, `meta_column`, `meta_relation`.
-- Register your business tables and columns in metadata (via Admin API or your own migrations/seeds). Search endpoints are then exposed per table alias.
+- Swagger UI: `/swagger-ui/index.html`
+- OpenAPI JSON: `/v3/api-docs`
 
-### 3. Auto-configuration
+### 3) Seed metadata
 
-The starter registers `MultistorageAutoConfiguration`: component scan for `meta`, `query`, `config` packages, JPA entities and meta repositories, and `MultistorageScanProperties` (prefix `multistorage.scan`, optional `ignoreTables`). To disable: exclude the auto-configuration or omit the dependency.
+You can seed metadata in two ways:
+- **Admin API** (recommended for manual setup): create `meta_table`, then `meta_column`, then `meta_relation`.
+- **Programmatic DB scan** (example in `multistorage-sample`): call `DatabaseMetadataManagerService.scanDatabase()`; if `MetaSyncService` is present it will sync scanned tables/columns/relations into meta tables.
 
-### 4. Metadata customization
+Admin API base path: `/multistorage/admin/meta` (tables / columns / relations).
 
-Implement and register a bean:
+### 4) Call entity endpoints
 
-```java
-@Component
-public class TenantMetaCustomizer implements MetaCustomizer {
-    @Override
-    public QueryMeta customize(QueryMeta meta, MetaRequest request) {
-        // Restrict tables/columns by tenant, role, etc.
-        return meta;
-    }
-}
+Search:
+
+```bash
+curl -X POST "http://localhost:8080/multistorage/api/<entity>/search" \
+  -H "Content-Type: application/json" \
+  -d '{"select":[["*"]],"where":{"logician":"AND","criteria":[]}}'
 ```
 
-Search calls do not yet pass `MetaRequest` with the current user/context into the meta provider; you can add that in `EntitySearchHandler` and `MetaProvider.getMeta(request)` if needed.
+Upsert:
+
+```bash
+curl -X POST "http://localhost:8080/multistorage/api/<entity>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"example"}'
+```
+
+Delete:
+
+```bash
+curl -X DELETE "http://localhost:8080/multistorage/api/<entity>/1"
+```
 
 ---
 
-## Search request format
+## API
 
-- **select** — List of paths. A path is an array of strings. `["*"]` = all readable columns of the root. `["relationName", "*"]` = all readable columns of that relation; chains like `["a", "b", "*"]` for nested relations.
-- **where** — Tree of criteria. Node: `logician` (AND/OR), `criteria` = array of nodes or leaf criteria. Leaf: `field` (array = path to field, including via relations), `operator`, `value` (for BETWEEN use an array of two elements).
+### Search
+
+`POST /multistorage/api/{entity}/search`
+
+Body (`Query`):
+- **select** — list of paths (`["*"]`, `["relation", "*"]`, `["a","b","field"]`)
+- **where** — criteria tree (`logician`, `criteria[]`, leaf criterion with `field[]`, `operator`, `value`)
 
 Example:
 
 ```json
 {
-  "select": [ ["*"], ["childToParent", "*"], ["childToChild_meta", "*"] ],
+  "select": [["*"], ["childToParent", "*"]],
   "where": {
     "logician": "AND",
     "criteria": [
@@ -85,17 +112,127 @@ Example:
 }
 ```
 
-Response is a list of maps (objects); nested relations are shaped as objects or arrays by relation type (many-to-one → object, one-to-many → array).
+Response: array of entities with nested relations (tree).
+
+### Upsert (create/update)
+
+`POST /multistorage/api/{entity}`
+
+Body: JSON object (entity). Keys can be column **name** or **alias**. Relation keys are relation aliases from `meta_relation.alias`.
+
+Nested objects/arrays are supported when cascade allows it.
+
+Response: saved entity in nested form (tree). Internally the starter persists and then refetches the entity by id and applies the nesting transformer, so API always returns tree-structured data.
+
+### Delete
+
+`DELETE /multistorage/api/{entity}/{id}`
+
+Response:
+
+```json
+{ "deleted": true }
+```
 
 ---
 
-## Planned (TODO)
+## Customization hooks
 
-- **Entity CRUD** — Create (POST body), Read by id (GET `/{entity}/{id}`), Update (PUT/PATCH), Delete (DELETE `/{entity}/{id}`) for business table rows, not only metadata.
-- **Validation and pre-processing** — Hooks/interfaces before running the query (validate Query, inject context into where, limits).
-- **Post-processing** — Transform or mask the result after fetch (e.g. hide fields, resolve references).
-- **Multi-tenancy** — Built-in ways to inject tenant id into queries and metadata (e.g. via `MetaCustomizer` and request context).
-- **Custom authorization** — Access checks for entities/fields at API level (e.g. with Spring Security, before compile/execute).
-- **Pagination and sorting** — limit/offset and order by in Query and generated SQL.
-- **API versioning** — Version prefix in paths or headers.
-- **Audit and logging** — Optional request/response logging and CRUD audit trail.
+### Request validators
+
+Provide your own `RequestValidator<T>` beans. Operation types:
+- `SEARCH` (`T = Query`)
+- `UPSERT` (`T = Map<String,Object>`)
+- `DELETE` (`T = Object` / id)
+
+If multiple validators exist for the same `OperationType`, the one with higher priority can be selected using Spring `@Order` (defaults exist in the starter).
+
+### PreProcess / PostProcess
+
+Register beans:
+- `PreProcessHandler<T>`
+- `PostProcessHandler<T, R>`
+
+They receive `(request, meta, targetTableName)` and optionally `(response)` and can enforce app-specific behavior (auth, multi-tenancy, defaults, masking, auditing).
+
+---
+
+## Metadata constraints (important)
+
+To keep resolution deterministic, manual metadata updates validate alias uniqueness:
+- **Meta table**: `alias` must not conflict with any existing table `name`.
+- **Meta column**: `alias` must not conflict with any existing column `name` within the same table.
+- **Meta relation**: relation `alias` must not conflict with any column `name` within the same from-table.
+
+The rest of the system assumes aliases are unique and do not conflict with names.
+
+---
+
+## Configuration
+
+### multistorage.scan.ignore-tables
+
+Additional table names to ignore during DB scan. Defaults always include:
+
+- `databasechangelog`
+- `databasechangeloglock`
+- `meta_table`
+- `meta_column`
+- `meta_relation`
+
+Example:
+
+```yaml
+multistorage:
+  scan:
+    ignore-tables:
+      - flyway_schema_history
+      - audit_log
+```
+
+---
+
+## Notes / limitations
+
+- **Primary key**: current JDBC persistor assumes primary key column name is `id` and uses `RETURNING "id"` on insert.
+- **Delete**: current implementation deletes only the root row; it does not automatically cascade deletes to children.
+- **Security**: exposing a dynamic entity API is powerful. In real apps you typically want to add auth/ACL and restrict meta via `MetaCustomizer` / validators.
+
+---
+
+## Database and metadata
+
+- Configure PostgreSQL and Liquibase in your application.
+- The starter brings meta migrations (`db/changelog/meta/`) that create:
+  - `meta_table`, `meta_column`, `meta_relation`
+  - including `meta_relation.cascade_type` for nested upsert cascade control
+- Register your business tables/columns/relations in metadata (Admin API or your own seeds).
+
+### 3. Auto-configuration
+
+The starter provides `MultistorageAutoConfiguration` (component scan for `meta`, `pipeline`, `query`, `config`, JPA entities and meta repositories, and `MultistorageScanProperties`).
+
+### 4. Metadata customization
+
+Implement and register a bean:
+
+```java
+@Component
+public class TenantMetaCustomizer implements MetaCustomizer {
+  @Override
+  public QueryMeta customize(QueryMeta meta, MetaRequest request) {
+    return meta;
+  }
+}
+```
+
+At the moment the starter uses `MetaRequest.builder().build()`; if you need principal/tenant context — extend handlers/pipeline to pass request context into `MetaProvider.getMeta(...)`.
+
+---
+
+## Planned
+
+- **Read by id** endpoint (GET) for entity rows
+- **Pagination/sorting** for search
+- **Authorization hooks** for tables/columns/operations
+- **Audit/logging** for entity upsert/delete

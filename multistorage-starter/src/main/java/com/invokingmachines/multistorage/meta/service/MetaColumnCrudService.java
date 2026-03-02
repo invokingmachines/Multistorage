@@ -38,6 +38,11 @@ public class MetaColumnCrudService {
     public MetaColumnDto upsert(String tableRef, MetaColumnRequest request) {
         String ref = tableRef != null ? tableRef : request.getTable();
         MetaTableEntity table = metaTableCrudService.resolveTable(ref).orElseThrow();
+        String proposedAlias = request.getAlias() != null ? request.getAlias() : request.getName();
+        boolean isUpdate = repository.findByTableIdAndName(table.getId(), request.getName()).isPresent();
+        if (request.getAlias() != null || !isUpdate) {
+            validateColumnAliasNotConflictingWithName(table.getId(), proposedAlias);
+        }
         return repository.findByTableIdAndName(table.getId(), request.getName())
                 .map(e -> {
                     if (request.getAlias() != null) e.setAlias(request.getAlias());
@@ -49,11 +54,21 @@ public class MetaColumnCrudService {
                 .orElseGet(() -> toDto(repository.save(MetaColumnEntity.builder()
                         .table(table)
                         .name(request.getName())
-                        .alias(request.getAlias() != null ? request.getAlias() : request.getName())
+                        .alias(proposedAlias)
                         .dataType(request.getDataType())
                         .readable(request.getReadable() != null ? request.getReadable() : true)
                         .searchable(request.getSearchable() != null ? request.getSearchable() : true)
                         .build()), table));
+    }
+
+    private void validateColumnAliasNotConflictingWithName(UUID tableId, String proposedAlias) {
+        if (proposedAlias == null || proposedAlias.isBlank()) return;
+        boolean nameConflict = repository.findByTableId(tableId).stream()
+                .anyMatch(c -> proposedAlias.equals(c.getName()));
+        if (nameConflict) {
+            throw new IllegalArgumentException(
+                    "Alias '" + proposedAlias + "' conflicts with existing column name. Alias must be unique among names and aliases.");
+        }
     }
 
     @Transactional

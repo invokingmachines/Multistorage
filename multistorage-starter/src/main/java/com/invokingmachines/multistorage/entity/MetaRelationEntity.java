@@ -39,6 +39,10 @@ public class MetaRelationEntity {
     @Column(name = "alias", nullable = false)
     private String alias;
 
+    @Column(name = "cascade_type", length = 32)
+    @Builder.Default
+    private String cascadeType = "NONE";
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean active = true;

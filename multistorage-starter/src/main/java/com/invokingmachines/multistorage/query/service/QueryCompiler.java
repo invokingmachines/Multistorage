@@ -6,12 +6,10 @@ import com.invokingmachines.multistorage.dto.meta.QueryMeta;
 import com.invokingmachines.multistorage.dto.meta.RelationMeta;
 import com.invokingmachines.multistorage.dto.meta.TableMeta;
 import com.invokingmachines.multistorage.dto.query.*;
+import com.invokingmachines.multistorage.query.service.MetaAliasMapper;
+import com.invokingmachines.multistorage.query.service.ValueConverter;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
-
-import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -20,12 +18,20 @@ import java.util.stream.Stream;
 @Component
 public class QueryCompiler {
 
+    private final MetaAliasMapper metaAliasMapper;
+    private final ValueConverter valueConverter;
+
+    public QueryCompiler(MetaAliasMapper metaAliasMapper, ValueConverter valueConverter) {
+        this.metaAliasMapper = metaAliasMapper;
+        this.valueConverter = valueConverter;
+    }
+
     public CompiledQuery compile(Query query, QueryMeta meta, String target) {
         if (isEmptyWhere(query.getWhere()))
             query.setWhere(new Criteria(Logician.AND, List.of()));
 
-        Map<String, String> aliasesMapping = mapAlliases(meta);
-        String tableName = aliasesMapping.get(target);
+        Map<String, String> aliasesMapping = metaAliasMapper.buildAliasesMapping(meta);
+        String tableName = aliasesMapping.getOrDefault(target, resolveTargetToTableName(meta, target));
         List<List<String>> expandedSelect = expandSelect(query.getSelect(), meta, tableName, aliasesMapping);
 
         return CompiledQuery.builder()
@@ -37,21 +43,6 @@ public class QueryCompiler {
 
     private static boolean isEmptyWhere(Criteria c) {
         return c.getCriteria().isEmpty();
-    }
-
-    private Map<String, String> mapAlliases(QueryMeta meta) {
-        Map<String, String> aliases = new HashMap<>();
-        for (TableMeta t : meta.getTables().values()) {
-            aliases.put(t.getAlias(), t.getName());
-            for (ColumnMeta col : t.getColumns().values()) {
-                aliases.put(col.getAlias(), col.getName());
-            }
-
-            for (RelationMeta r : t.getRelations().values()) {
-                aliases.put(r.getAlias(), r.getToTable());
-            }
-        }
-        return aliases;
     }
 
     private String buildSql(List<List<String>> expandedSelect, Query query, QueryMeta meta, Map<String, String> aliasesMapping, String target, String tableName) {
@@ -91,12 +82,16 @@ public class QueryCompiler {
         return current;
     }
 
-    static String resolveTargetToTableName(QueryMeta meta, String target) {
+    public static String resolveTargetToTableName(QueryMeta meta, String target) {
         if (meta.getTables().containsKey(target)) return target;
         return meta.getTables().values().stream()
                 .filter(t -> target.equals(t.getAlias()))
                 .map(TableMeta::getName)
                 .findFirst()
+                .or(() -> meta.getTables().values().stream()
+                        .filter(t -> target.equalsIgnoreCase(t.getName()) || (t.getAlias() != null && target.equalsIgnoreCase(t.getAlias())))
+                        .map(TableMeta::getName)
+                        .findFirst())
                 .orElse(target);
     }
 
@@ -232,28 +227,12 @@ public class QueryCompiler {
                         ? meta.getTables().get(tableName)
                         : resolveTableByRelationChainStatic(meta, tableName, field.subList(0, field.size() - 1));
                 String columnRef = field.get(field.size() - 1);
-                String columnName = aliasMapping.get(columnRef);
-                ColumnMeta cm = table.getColumns().get(columnName);
-                params.add(convertValue(c.getValue(), cm.getDataType()));
+                String columnName = aliasMapping.getOrDefault(columnRef, columnRef);
+                ColumnMeta cm = table != null ? table.getColumns().get(columnName) : null;
+                params.add(valueConverter.toJdbcValue(c.getValue(), cm != null ? cm.getDataType() : null));
             }
         }
         return params;
     }
 
-    private Object convertValue(Object value, String dataType) {
-        String lower = dataType.toLowerCase();
-        if (lower.contains("timestamp")) {
-            return value instanceof String ? Timestamp.from(Instant.parse((String) value)) : value;
-        }
-        if (lower.contains("date") && !lower.contains("timestamp")) {
-            return value instanceof String ? LocalDate.parse((String) value) : value;
-        }
-        if (lower.contains("int") || lower.contains("bigint") || lower.contains("smallint") || lower.contains("serial")) {
-            return value instanceof Number ? ((Number) value).longValue() : Long.parseLong(value.toString());
-        }
-        if (lower.contains("boolean") || lower.contains("bool")) {
-            return value instanceof Boolean ? value : Boolean.parseBoolean(value.toString());
-        }
-        return value;
-    }
 }

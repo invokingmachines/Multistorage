@@ -1,33 +1,36 @@
 package com.invokingmachines.multistorage.query;
 
-import com.invokingmachines.multistorage.dto.query.Query;
 import com.invokingmachines.multistorage.pipeline.RequestPipeline;
 import com.invokingmachines.multistorage.util.NamingUtils;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.ResponseBody;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 @Component
-@RequiredArgsConstructor
-public class EntitySearchHandler {
+public class EntityUpsertHandler {
 
-    private static final Pattern ENTITY_PATH = Pattern.compile("^/multistorage/api/([^/]+)/search$");
+    private static final Pattern ENTITY_PATH = Pattern.compile("^/multistorage/api/([^/]+)$");
 
     private final RequestPipeline requestPipeline;
 
-    @ResponseBody
-    public ResponseEntity<List<Map<String, Object>>> search(HttpServletRequest request, @RequestBody Query query) {
+    public EntityUpsertHandler(RequestPipeline requestPipeline) {
+        this.requestPipeline = requestPipeline;
+    }
+
+    @org.springframework.web.bind.annotation.ResponseBody
+    public ResponseEntity<?> upsert(HttpServletRequest request, @RequestBody(required = false) Object body) {
         String pathSegment = extractEntity(request.getRequestURI());
         String entityAlias = NamingUtils.fromPathSegment(pathSegment);
-        List<Map<String, Object>> result = requestPipeline.executeSearch(query, entityAlias);
+        Map<String, Object> entity = body instanceof Map ? (Map<String, Object>) body : null;
+        if (entity == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        Map<String, Object> result = requestPipeline.executeUpsert(entity, entityAlias);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(result);

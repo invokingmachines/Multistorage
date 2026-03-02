@@ -1,5 +1,6 @@
 package com.invokingmachines.multistorage.dto.meta;
 
+import com.invokingmachines.multistorage.pipeline.CascadeType;
 import lombok.Builder;
 import lombok.Data;
 
@@ -13,4 +14,6 @@ public class RelationMeta {
     private String fromColumn;
     private String toColumn;
     private boolean oneToMany;
+    @Builder.Default
+    private CascadeType cascade = CascadeType.NONE;
 }
