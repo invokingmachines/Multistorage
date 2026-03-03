@@ -27,12 +27,16 @@ public class QueryCompiler {
     }
 
     public CompiledQuery compile(Query query, QueryMeta meta, String target) {
-        if (isEmptyWhere(query.getWhere()))
+        if (query.getWhere() == null || isEmptyWhere(query.getWhere()))
             query.setWhere(new Criteria(Logician.AND, List.of()));
 
         Map<String, String> aliasesMapping = metaAliasMapper.buildAliasesMapping(meta);
         String tableName = aliasesMapping.getOrDefault(target, resolveTargetToTableName(meta, target));
-        List<List<String>> expandedSelect = expandSelect(query.getSelect(), meta, tableName, aliasesMapping);
+        if (!meta.getTables().containsKey(tableName)) {
+            tableName = resolveTargetToTableName(meta, target);
+        }
+        List<List<String>> select = query.getSelect() != null && !query.getSelect().isEmpty() ? query.getSelect() : List.of(List.of("*"));
+        List<List<String>> expandedSelect = expandSelect(select, meta, tableName, aliasesMapping);
 
         return CompiledQuery.builder()
                 .sql(buildSql(expandedSelect, query, meta, aliasesMapping, target, tableName))
@@ -52,20 +56,42 @@ public class QueryCompiler {
     }
 
     private List<List<String>> expandSelect(List<List<String>> select, QueryMeta meta, String tableName, Map<String, String> aliasesMapping) {
+        String resolvedTableName = resolveTargetToTableName(meta, tableName);
+        if (!meta.getTables().containsKey(resolvedTableName)) {
+            throw new IllegalArgumentException("Table not found in meta: " + tableName + " (resolved: " + resolvedTableName + ")");
+        }
+        tableName = resolvedTableName;
         List<List<String>> result = new ArrayList<>();
+        TableMeta rootTable = meta.getTables().get(tableName);
         for (List<String> path : select) {
             if (path.size() == 1 && "*".equals(path.getFirst())) {
-                meta.getTables().get(tableName).getColumns().values().stream()
+                rootTable.getColumns().values().stream()
                         .map(c -> List.of(c.getName())).forEach(result::add);
             } else if (path.size() >= 2 && "*".equals(path.get(path.size() - 1))) {
                 String relationAlias = path.get(path.size() - 2);
                 String toTableName = aliasesMapping.get(relationAlias);
+                if (toTableName == null) {
+                    throw new IllegalArgumentException("Relation not found in aliases: " + relationAlias);
+                }
+                TableMeta toTable = meta.getTables().get(toTableName);
+                if (toTable == null) {
+                    throw new IllegalArgumentException("Table not found in meta: " + toTableName);
+                }
                 List<String> prefix = path.subList(0, path.size() - 1);
-                meta.getTables().get(toTableName).getColumns().values().stream()
+                toTable.getColumns().values().stream()
                         .map(c -> Stream.concat(prefix.stream(), Stream.of(c.getName())).toList())
                         .forEach(result::add);
             } else {
-                result.add(path);
+                if (path.size() == 1) {
+                    String colRef = path.getFirst();
+                    String colName = aliasesMapping.getOrDefault(colRef, colRef);
+                    result.add(List.of(colName));
+                } else {
+                    String colRef = path.getLast();
+                    String colName = aliasesMapping.getOrDefault(colRef, colRef);
+                    List<String> prefix = path.subList(0, path.size() - 1);
+                    result.add(Stream.concat(prefix.stream(), Stream.of(colName)).toList());
+                }
             }
         }
         return result;
@@ -73,11 +99,18 @@ public class QueryCompiler {
 
 
     static TableMeta resolveTableByRelationChainStatic(QueryMeta meta, String tableName, List<String> chain) {
-        if (chain.isEmpty()) return meta.getTables().get(tableName);
+        if (chain.isEmpty()) {
+            TableMeta t = meta.getTables().get(tableName);
+            if (t == null) throw new IllegalArgumentException("Table not found: " + tableName);
+            return t;
+        }
         TableMeta current = meta.getTables().get(tableName);
+        if (current == null) throw new IllegalArgumentException("Table not found: " + tableName);
         for (String rel : chain) {
             RelationMeta r = current.getRelations().get(rel);
+            if (r == null) throw new IllegalArgumentException("Relation not found: " + rel + " in table " + current.getName());
             current = meta.getTables().get(r.getToTable());
+            if (current == null) throw new IllegalArgumentException("Table not found: " + r.getToTable());
         }
         return current;
     }
@@ -122,7 +155,7 @@ public class QueryCompiler {
     private String mapToCondition(String target, Criterion c, Map<String, String> aliasesMapping) {
         String sqlAlias = c.getField().size() == 1 ? target : c.getField().get(c.getField().size() - 2);
         String columnRef = c.getField().getLast();
-        String columnName = aliasesMapping.get(columnRef);
+        String columnName = aliasesMapping.getOrDefault(columnRef, columnRef);
         return String.format(" \"%s\".\"%s\" %s ?", sqlAlias, columnName, getSqlOperator(c.getOperator()));
     }
 
@@ -142,12 +175,24 @@ public class QueryCompiler {
     }
 
     private String buildSelect(String target, List<List<String>> select, QueryMeta meta, String tableName) {
+        Map<String, String> aliasesMapping = metaAliasMapper.buildAliasesMapping(meta);
         return select.isEmpty() ? defaultSelect(target, meta, tableName) : "SELECT " + select
                 .stream()
                 .map((List<String> path) -> {
-                    if (path.size() == 1)
-                        return String.format("\"%s\".\"%s\"", target, path.getFirst());
-                    return String.format("\"%s\".\"%s\" AS \"%s\"", path.get(path.size() - 2), path.getLast(), path.get(path.size() - 2) + StringUtils.capitalize(path.getLast()));
+                    if (path.size() == 1) {
+                        String physical = path.getFirst();
+                        TableMeta root = meta.getTables().get(tableName);
+                        ColumnMeta cm = root != null ? root.getColumns().get(physical) : null;
+                        String outKey = cm != null && cm.getAlias() != null && !cm.getAlias().isBlank() ? cm.getAlias() : physical;
+                        return String.format("\"%s\".\"%s\" AS \"%s\"", target, physical, outKey);
+                    }
+                    String relAlias = path.get(path.size() - 2);
+                    String physical = path.getLast();
+                    String toTableName = aliasesMapping.get(relAlias);
+                    TableMeta child = toTableName != null ? meta.getTables().get(toTableName) : null;
+                    ColumnMeta cm = child != null ? child.getColumns().get(physical) : null;
+                    String outField = cm != null && cm.getAlias() != null && !cm.getAlias().isBlank() ? cm.getAlias() : physical;
+                    return String.format("\"%s\".\"%s\" AS \"%s\"", relAlias, physical, relAlias + StringUtils.capitalize(outField));
                 })
                 .collect(Collectors.joining(", "));
     }
@@ -160,7 +205,8 @@ public class QueryCompiler {
     }
 
     private String buildFrom(List<List<String>> select, Criteria where, QueryMeta meta, Map<String, String> aliasesMapping, String target, String tableName) {
-        String from = " FROM \"" + tableName + "\" AS \"" + target + "\"";
+        String physicalName = meta.getTables().get(tableName).getName();
+        String from = " FROM \"" + physicalName + "\" AS \"" + target + "\"";
         List<List<String>> chains = collectChains(select, where);
         if (chains.isEmpty()) return from;
         List<Join> joins = new ArrayList<>();
@@ -205,7 +251,9 @@ public class QueryCompiler {
     private List<Join> toJoins(QueryMeta meta, String currentTableAlias, String currentTableName, List<String> chain) {
         String first = chain.get(0);
         TableMeta table = meta.getTables().get(currentTableName);
+        if (table == null) throw new IllegalArgumentException("Table not found: " + currentTableName);
         RelationMeta r = table.getRelations().get(first);
+        if (r == null) throw new IllegalArgumentException("Relation not found: " + first + " in table " + currentTableName);
         Join join = new Join(r.getToTable(), r.getAlias(), currentTableAlias, r.getFromColumn(), r.getToColumn());
         List<Join> out = new ArrayList<>();
         out.add(join);

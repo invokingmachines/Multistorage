@@ -80,7 +80,7 @@ public class JdbcEntityPersistor implements EntityPersistor {
         for (Object item : (List<?>) value) {
             if (item instanceof Map) {
                 Map<String, Object> child = new LinkedHashMap<>((Map<String, Object>) item);
-                child.put(rel.getFromColumn(), parentId);
+                child.put(rel.getToColumn(), parentId);
                 upsert(rel.getToTable(), child, meta);
             }
         }

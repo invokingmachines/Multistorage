@@ -7,7 +7,9 @@ import com.invokingmachines.multistorage.dto.meta.RelationMeta;
 import com.invokingmachines.multistorage.dto.meta.TableMeta;
 import com.invokingmachines.multistorage.dto.query.Query;
 import com.invokingmachines.multistorage.query.dto.CompiledQuery;
+import com.invokingmachines.multistorage.query.service.MetaAliasMapper;
 import com.invokingmachines.multistorage.query.service.QueryCompiler;
+import com.invokingmachines.multistorage.query.service.ValueConverter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -21,17 +23,17 @@ class JdbcQueryCompilerTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        compiler = new QueryCompiler();
+        compiler = new QueryCompiler(new MetaAliasMapper(), new ValueConverter());
     }
 
     @Test
     void jsonToSql_simpleEq() throws Exception {
         QueryMeta qm = QueryMeta.builder()
-                .table("parent",
+                .table("parent_db",
                         TableMeta.builder()
                                 .alias("parent")
                                 .name("parent_db")
-                                .column("name",
+                                .column("name_db",
                                         ColumnMeta.builder()
                                                 .name("name_db")
                                                 .alias("name")
@@ -48,11 +50,11 @@ class JdbcQueryCompilerTest {
                                                 .oneToMany(true)
                                                 .build())
                                 .build())
-                .table("children",
+                .table("child_db",
                         TableMeta.builder()
                                 .alias("child")
                                 .name("child_db")
-                                .column("name",
+                                .column("name_db",
                                         ColumnMeta.builder()
                                                 .name("name_db")
                                                 .alias("name")

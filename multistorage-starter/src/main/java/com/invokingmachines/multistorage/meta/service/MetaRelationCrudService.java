@@ -49,6 +49,7 @@ public class MetaRelationCrudService {
                     e.setFromColumn(request.getFromColumn());
                     e.setToColumn(request.getToColumn());
                     e.setOneToMany(request.getOneToMany() != null ? request.getOneToMany() : true);
+                    if (request.getCascadeType() != null) e.setCascadeType(request.getCascadeType());
                     if (request.getActive() != null) e.setActive(request.getActive());
                     return toDto(repository.save(e));
                 })
@@ -59,6 +60,7 @@ public class MetaRelationCrudService {
                         .toColumn(request.getToColumn())
                         .oneToMany(request.getOneToMany() != null ? request.getOneToMany() : true)
                         .alias(request.getAlias())
+                        .cascadeType(request.getCascadeType() != null ? request.getCascadeType() : "NONE")
                         .active(request.getActive() != null ? request.getActive() : true)
                         .build())));
     }
@@ -88,6 +90,7 @@ public class MetaRelationCrudService {
                 .toColumn(e.getToColumn())
                 .oneToMany(Boolean.TRUE.equals(e.getOneToMany()))
                 .alias(e.getAlias())
+                .cascadeType(e.getCascadeType())
                 .active(e.getActive())
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())

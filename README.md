@@ -197,6 +197,8 @@ multistorage:
 - **Primary key**: current JDBC persistor assumes primary key column name is `id` and uses `RETURNING "id"` on insert.
 - **Delete**: current implementation deletes only the root row; it does not automatically cascade deletes to children.
 - **Security**: exposing a dynamic entity API is powerful. In real apps you typically want to add auth/ACL and restrict meta via `MetaCustomizer` / validators.
+- **Aliases in API**: clients receive fields using **aliases**, not raw DB names. For best readability, keep DB naming `snake_case` (e.g. `child_meta`, `created_at`) and use API aliases in `PascalCase` for tables (`ChildMeta`) and `camelCase` for columns (`createdAt`).
+  This is fully configurable via metadata: `meta_table.alias`, `meta_column.alias`, `meta_relation.alias`.
 
 ---
 

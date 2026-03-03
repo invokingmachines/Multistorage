@@ -19,6 +19,7 @@ public class MetaRelationDto {
     private String toColumn;
     private boolean oneToMany;
     private String alias;
+    private String cascadeType;
     private Boolean active;
     private Instant createdAt;
     private Instant updatedAt;

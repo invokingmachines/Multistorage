@@ -1,6 +1,7 @@
 package com.invokingmachines.multistorage.pipeline;
 
 import com.invokingmachines.multistorage.dto.meta.QueryMeta;
+import com.invokingmachines.multistorage.dto.meta.TableMeta;
 import com.invokingmachines.multistorage.dto.query.Criteria;
 import com.invokingmachines.multistorage.dto.query.Criterion;
 import com.invokingmachines.multistorage.dto.query.Logician;
@@ -79,6 +80,7 @@ public class RequestPipeline {
 
         CompiledQuery compiled = queryCompiler.compile(request, meta, targetTableName);
         List<Map<String, Object>> rows = queryExecutionService.execute(compiled);
+        rows = normalizeRowKeysToAliases(rows, meta, tableName);
         List<Map<String, Object>> response = ResultNestingTransformer.nestRelationFields(rows, compiled.getExpandedSelect(), meta, targetTableName);
 
         List<PostProcessHandler<?, ?>> postList = postProcessMap.getOrDefault(OperationType.SEARCH, Collections.emptyList());
@@ -105,8 +107,9 @@ public class RequestPipeline {
         Query refetchQuery = new Query(expandedSelect, new Criteria(Logician.AND, List.of(new Criterion(null, Operator.EQ, savedId, List.of("id")))));
         CompiledQuery refetchCompiled = queryCompiler.compile(refetchQuery, meta, targetTableName);
         List<Map<String, Object>> refetchRows = queryExecutionService.execute(refetchCompiled);
-        Map<String, Object> response = refetchRows.isEmpty() ? flatResponse
-                : ResultNestingTransformer.nestRelationFields(refetchRows, refetchCompiled.getExpandedSelect(), meta, targetTableName).get(0);
+        List<Map<String, Object>> refetchNormalized = normalizeRowKeysToAliases(refetchRows, meta, tableName);
+        Map<String, Object> response = refetchNormalized.isEmpty() ? flatResponse
+                : ResultNestingTransformer.nestRelationFields(refetchNormalized, refetchCompiled.getExpandedSelect(), meta, targetTableName).get(0);
 
         List<PostProcessHandler<?, ?>> postList = postProcessMap.getOrDefault(OperationType.UPSERT, Collections.emptyList());
         postList.forEach(h -> ((PostProcessHandler<Map<String, Object>, Map<String, Object>>) h).postProcess(request, meta, response));
@@ -130,5 +133,33 @@ public class RequestPipeline {
         Map<String, Object> response = Map.of("deleted", true);
         List<PostProcessHandler<?, ?>> postList = postProcessMap.getOrDefault(OperationType.DELETE, Collections.emptyList());
         postList.forEach(h -> ((PostProcessHandler<Object, Map<String, Object>>) h).postProcess(id, meta, response));
+    }
+
+    private static List<Map<String, Object>> normalizeRowKeysToAliases(List<Map<String, Object>> rows, QueryMeta meta, String tableName) {
+        TableMeta table = meta.getTables().get(tableName);
+        if (table == null || table.getColumns() == null) return rows;
+        List<Map.Entry<String, String>> renames = table.getColumns().values().stream()
+                .filter(c -> c.getAlias() != null && !c.getAlias().isBlank() && !c.getName().equals(c.getAlias()))
+                .map(c -> Map.entry(c.getName(), c.getAlias()))
+                .toList();
+        if (renames.isEmpty()) return rows;
+        return rows.stream()
+                .map(row -> {
+                    Map<String, Object> out = new java.util.LinkedHashMap<>(row);
+                    renames.forEach(e -> {
+                        String physical = e.getKey();
+                        String alias = e.getValue();
+                        if (out.containsKey(physical)) {
+                            out.put(alias, out.remove(physical));
+                        } else {
+                            String physicalLower = physical.toLowerCase();
+                            if (out.containsKey(physicalLower)) {
+                                out.put(alias, out.remove(physicalLower));
+                            }
+                        }
+                    });
+                    return out;
+                })
+                .collect(Collectors.toList());
     }
 }

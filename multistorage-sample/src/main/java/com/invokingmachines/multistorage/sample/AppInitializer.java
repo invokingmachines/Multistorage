@@ -5,6 +5,7 @@ import com.invokingmachines.multistorage.meta.service.DatabaseMetadataManagerSer
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,7 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 @DependsOn("liquibase")
+@Profile("!test")
 public class AppInitializer {
 
     private final DatabaseMetadataManagerService databaseMetadataManagerService;

@@ -17,5 +17,6 @@ public class MetaRelationRequest {
     private String toColumn;
     private Boolean oneToMany;
     private String alias;
+    private String cascadeType;
     private Boolean active;
 }

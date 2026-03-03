@@ -41,10 +41,12 @@ public class EntityRequestValidator implements RequestValidator<Map<String, Obje
             if (rel == null) {
                 throw new IllegalArgumentException("Field not found: " + key + " in table " + tableName);
             }
-            if (!isRoot && rel.getCascade() == CascadeType.NONE) {
-                throw new IllegalArgumentException("Cannot update nested entity via relation " + key + ": cascade is NONE");
-            }
             Object val = e.getValue();
+            boolean nestedEntity = val instanceof Map
+                    || (val instanceof List && ((List<?>) val).stream().anyMatch(Map.class::isInstance));
+            if (nestedEntity && rel.getCascade() == CascadeType.NONE) {
+                throw new IllegalArgumentException("Cannot write nested entity via relation " + key + ": cascade is NONE");
+            }
             if (val instanceof Map) {
                 validateEntityFields((Map<String, Object>) val, rel.getToTable(), meta, false);
             } else if (val instanceof List) {

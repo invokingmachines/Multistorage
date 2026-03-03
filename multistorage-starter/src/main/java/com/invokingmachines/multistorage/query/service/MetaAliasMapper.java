@@ -29,7 +29,8 @@ public class MetaAliasMapper {
     }
 
     public String resolveColumnName(TableMeta table, String ref) {
-        if (table.getColumns().containsKey(ref)) return ref;
+        ColumnMeta byKey = table.getColumns().get(ref);
+        if (byKey != null) return byKey.getName();
         return table.getColumns().values().stream()
                 .filter(c -> ref.equals(c.getAlias()))
                 .map(ColumnMeta::getName)
