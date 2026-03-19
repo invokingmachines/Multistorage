@@ -182,6 +182,41 @@ public class SearchE2ETest extends AbstractE2ETest {
         assertThat(body.get(0).get(E2ETestConfig.R_CHILD_TO_CHILD_META)).isInstanceOf(List.class);
     }
 
+    @Test
+    void search_withPagination_returnsPagedResult() {
+        seedChildren();
+        var r = postSearch(E2ETestConfig.T_CHILD, Map.of(
+                "select", List.of(List.of("id"), List.of("name")),
+                "where", Map.of("logician", "AND", "criteria", List.of()),
+                "page", 0,
+                "size", 2
+        ));
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<String, Object> paged = asPagedSearchResult(r);
+        assertThat(paged).containsKeys("content", "totalElements", "totalPages", "size", "number");
+        assertThat((List<?>) paged.get("content")).hasSize(2);
+        assertThat(paged.get("totalElements")).isIn(3, 3L);
+        assertThat(paged.get("totalPages")).isEqualTo(2);
+        assertThat(paged.get("size")).isEqualTo(2);
+        assertThat(paged.get("number")).isEqualTo(0);
+    }
+
+    @Test
+    void search_withPagination_secondPage_returnsRemaining() {
+        seedChildren();
+        var r = postSearch(E2ETestConfig.T_CHILD, Map.of(
+                "select", List.of(List.of("id")),
+                "where", Map.of("logician", "AND", "criteria", List.of()),
+                "page", 1,
+                "size", 2
+        ));
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<String, Object> paged = asPagedSearchResult(r);
+        assertThat((List<?>) paged.get("content")).hasSize(1);
+        assertThat(paged.get("totalElements")).isIn(3, 3L);
+        assertThat(paged.get("number")).isEqualTo(1);
+    }
+
     private void seedChildren() {
         Instant now = Instant.parse("2024-01-15T10:00:00Z");
         jdbc.update("INSERT INTO child(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",

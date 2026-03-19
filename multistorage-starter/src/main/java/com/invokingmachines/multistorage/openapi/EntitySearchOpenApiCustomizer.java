@@ -1,4 +1,4 @@
-package com.invokingmachines.multistorage.query;
+package com.invokingmachines.multistorage.openapi;
 
 import com.invokingmachines.multistorage.dto.meta.QueryMeta;
 import com.invokingmachines.multistorage.dto.meta.TableMeta;
@@ -62,17 +62,22 @@ public class EntitySearchOpenApiCustomizer implements GlobalOpenApiCustomizer {
     }
 
     private void addSearchPath(OpenAPI openApi, String tableName, String pathSegment, String tagName, TableMeta tableMeta) {
-        Schema<?> querySchema = new Schema<>().type("object").description("Query: select, where");
+        Schema<?> querySchema = new Schema<>().type("object").description("Query: select, where, optional page (0-based), size (page size). When page/size present, response is paged object.")
+                .addProperty("select", new Schema<>().type("array").description("Field paths"))
+                .addProperty("where", new Schema<>().type("object").description("Criteria"))
+                .addProperty("page", new Schema<>().type("integer").description("Page index (0-based), optional"))
+                .addProperty("size", new Schema<>().type("integer").description("Page size, optional"));
         MediaType searchRequestMedia = new MediaType().schema(querySchema).example(EXAMPLE_QUERY);
 
         Object searchResponseExample = List.of(buildEntityExample(tableMeta, meta -> null, 1L));
-        Schema<?> arraySchema = new Schema<>().type("array").items(new Schema<>().type("object"));
-        MediaType searchResponseMedia = new MediaType().schema(arraySchema).example(searchResponseExample);
+        MediaType searchResponseMedia = new MediaType()
+                .schema(new Schema<>().description("Without page/size: array of entities. With page/size: object with content, totalElements, totalPages, size, number."))
+                .example(searchResponseExample);
 
         Operation op = new Operation()
                 .operationId("search_" + tableName)
                 .summary("Search " + tableName)
-                .description("Execute search query. Body: select (field paths), where (criteria).")
+                .description("Execute search query. Body: select (field paths), where (criteria). Optional page, size for pagination; then response is { content, totalElements, totalPages, size, number }.")
                 .addTagsItem(tagName)
                 .requestBody(new RequestBody().required(true)
                         .content(new Content().addMediaType("application/json", searchRequestMedia)))

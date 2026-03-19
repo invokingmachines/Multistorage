@@ -1,102 +1,62 @@
 package com.invokingmachines.multistorage.query.service;
 
 import com.invokingmachines.multistorage.query.dto.CompiledQuery;
-import com.invokingmachines.multistorage.dto.meta.ColumnMeta;
 import com.invokingmachines.multistorage.dto.meta.QueryMeta;
 import com.invokingmachines.multistorage.dto.meta.RelationMeta;
 import com.invokingmachines.multistorage.dto.meta.TableMeta;
-import com.invokingmachines.multistorage.dto.query.*;
-import com.invokingmachines.multistorage.query.service.MetaAliasMapper;
-import com.invokingmachines.multistorage.query.service.ValueConverter;
-import org.apache.commons.lang3.StringUtils;
+import com.invokingmachines.multistorage.query.dto.normalized.NormalizedQuery;
+import com.invokingmachines.multistorage.query.dto.normalized.NormalizedSelect;
+import com.invokingmachines.multistorage.dto.query.Criteria;
+import com.invokingmachines.multistorage.dto.query.Criterion;
+import com.invokingmachines.multistorage.dto.query.Node;
+import com.invokingmachines.multistorage.dto.query.Operator;
+import lombok.RequiredArgsConstructor;
+import org.jooq.Condition;
+import org.jooq.DSLContext;
+import org.jooq.Field;
+import org.jooq.JSONB;
+import org.jooq.Select;
+import org.jooq.SelectConditionStep;
+import org.jooq.Table;
+import org.jooq.impl.DSL;
 import org.springframework.stereotype.Component;
+
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 
 @Component
+@RequiredArgsConstructor
 public class QueryCompiler {
 
-    private final MetaAliasMapper metaAliasMapper;
-    private final ValueConverter valueConverter;
+    private final DSLContext dsl;
 
-    public QueryCompiler(MetaAliasMapper metaAliasMapper, ValueConverter valueConverter) {
-        this.metaAliasMapper = metaAliasMapper;
-        this.valueConverter = valueConverter;
-    }
+    public CompiledQuery compile(NormalizedQuery nq, QueryMeta meta) {
+        String rootTableName = nq.getRootTableName();
+        String rootSqlAlias = nq.getRootSqlAlias();
 
-    public CompiledQuery compile(Query query, QueryMeta meta, String target) {
-        if (query.getWhere() == null || isEmptyWhere(query.getWhere()))
-            query.setWhere(new Criteria(Logician.AND, List.of()));
+        Table<?> rootTable = DSL.table(DSL.name(meta.getTables().get(rootTableName).getName())).as(rootSqlAlias);
+        Condition where = toCondition(nq, meta, rootTableName, List.of(), nq.getWhere());
+        Field<JSONB> json = buildJsonForSelect(nq.getSelect(), meta);
 
-        Map<String, String> aliasesMapping = metaAliasMapper.buildAliasesMapping(meta);
-        String tableName = aliasesMapping.getOrDefault(target, resolveTargetToTableName(meta, target));
-        if (!meta.getTables().containsKey(tableName)) {
-            tableName = resolveTargetToTableName(meta, target);
-        }
-        List<List<String>> select = query.getSelect() != null && !query.getSelect().isEmpty() ? query.getSelect() : List.of(List.of("*"));
-        List<List<String>> expandedSelect = expandSelect(select, meta, tableName, aliasesMapping);
+        SelectConditionStep<?> base = dsl.select(json.as("data")).from(rootTable).where(where);
+        org.jooq.ResultQuery<?> q = nq.isPaged() ? base.limit(nq.getLimit()).offset(nq.getOffset()) : base;
 
         return CompiledQuery.builder()
-                .sql(buildSql(expandedSelect, query, meta, aliasesMapping, target, tableName))
-                .parameters(mapCriteriaToParams(query.getWhere(), meta, tableName, aliasesMapping))
-                .expandedSelect(expandedSelect)
+                .query(q)
                 .build();
     }
 
-    private static boolean isEmptyWhere(Criteria c) {
-        return c.getCriteria().isEmpty();
-    }
+    public CompiledQuery compileCount(NormalizedQuery nq, QueryMeta meta) {
+        String rootTableName = nq.getRootTableName();
+        String rootSqlAlias = nq.getRootSqlAlias();
 
-    private String buildSql(List<List<String>> expandedSelect, Query query, QueryMeta meta, Map<String, String> aliasesMapping, String target, String tableName) {
-        String select = buildSelect(target, expandedSelect, meta, tableName);
-        String from = buildFrom(expandedSelect, query.getWhere(), meta, aliasesMapping, target, tableName);
-        return select + from + buildWhere(target, query.getWhere(), aliasesMapping) + ";";
+        Table<?> rootTable = DSL.table(DSL.name(meta.getTables().get(rootTableName).getName())).as(rootSqlAlias);
+        Condition where = toCondition(nq, meta, rootTableName, List.of(), nq.getWhere());
+        Select<?> count = dsl.selectCount().from(rootTable).where(where);
+        return CompiledQuery.builder()
+                .query(count)
+                .build();
     }
-
-    private List<List<String>> expandSelect(List<List<String>> select, QueryMeta meta, String tableName, Map<String, String> aliasesMapping) {
-        String resolvedTableName = resolveTargetToTableName(meta, tableName);
-        if (!meta.getTables().containsKey(resolvedTableName)) {
-            throw new IllegalArgumentException("Table not found in meta: " + tableName + " (resolved: " + resolvedTableName + ")");
-        }
-        tableName = resolvedTableName;
-        List<List<String>> result = new ArrayList<>();
-        TableMeta rootTable = meta.getTables().get(tableName);
-        for (List<String> path : select) {
-            if (path.size() == 1 && "*".equals(path.getFirst())) {
-                rootTable.getColumns().values().stream()
-                        .map(c -> List.of(c.getName())).forEach(result::add);
-            } else if (path.size() >= 2 && "*".equals(path.get(path.size() - 1))) {
-                String relationAlias = path.get(path.size() - 2);
-                String toTableName = aliasesMapping.get(relationAlias);
-                if (toTableName == null) {
-                    throw new IllegalArgumentException("Relation not found in aliases: " + relationAlias);
-                }
-                TableMeta toTable = meta.getTables().get(toTableName);
-                if (toTable == null) {
-                    throw new IllegalArgumentException("Table not found in meta: " + toTableName);
-                }
-                List<String> prefix = path.subList(0, path.size() - 1);
-                toTable.getColumns().values().stream()
-                        .map(c -> Stream.concat(prefix.stream(), Stream.of(c.getName())).toList())
-                        .forEach(result::add);
-            } else {
-                if (path.size() == 1) {
-                    String colRef = path.getFirst();
-                    String colName = aliasesMapping.getOrDefault(colRef, colRef);
-                    result.add(List.of(colName));
-                } else {
-                    String colRef = path.getLast();
-                    String colName = aliasesMapping.getOrDefault(colRef, colRef);
-                    List<String> prefix = path.subList(0, path.size() - 1);
-                    result.add(Stream.concat(prefix.stream(), Stream.of(colName)).toList());
-                }
-            }
-        }
-        return result;
-    }
-
 
     static TableMeta resolveTableByRelationChainStatic(QueryMeta meta, String tableName, List<String> chain) {
         if (chain.isEmpty()) {
@@ -128,159 +88,140 @@ public class QueryCompiler {
                 .orElse(target);
     }
 
-    private String buildWhere(String target, Criteria criteria, Map<String, String> aliasesMapping) {
-        return " WHERE" + parseCriteria(target, criteria, aliasesMapping);
+    private Condition toCondition(NormalizedQuery nq, QueryMeta meta, String rootTableName, List<String> relationPath, Criteria where) {
+        if (where == null || where.getCriteria() == null || where.getCriteria().isEmpty()) return DSL.trueCondition();
+        return mapCriteria(where, n -> switch (n) {
+            case Criteria c -> toCondition(nq, meta, rootTableName, relationPath, c);
+            case Criterion c -> toCondition(nq, meta, rootTableName, relationPath, c);
+            default -> DSL.trueCondition();
+        });
     }
 
-    private String parseCriteria(String target, Criteria criteria, Map<String, String> aliasesMapping) {
-        if (criteria.getCriteria().isEmpty()) {
-            return " (1=1) ";
+    private static Condition mapCriteria(Criteria c, java.util.function.Function<Node, Condition> mapper) {
+        List<Condition> parts = c.getCriteria().stream().map(mapper).toList();
+        return switch (c.getLogician()) {
+            case OR -> parts.stream().reduce(DSL.falseCondition(), Condition::or);
+            case NOT -> parts.stream().reduce(DSL.trueCondition(), Condition::and).not();
+            case AND -> parts.stream().reduce(DSL.trueCondition(), Condition::and);
+        };
+    }
+
+    private Condition toCondition(NormalizedQuery nq, QueryMeta meta, String rootTableName, List<String> relationPath, Criterion c) {
+        if (c == null || c.getField() == null || c.getField().isEmpty()) return DSL.trueCondition();
+        List<String> fieldPath = c.getField();
+        String columnRef = fieldPath.get(fieldPath.size() - 1);
+        List<String> relations = fieldPath.size() > 1 ? fieldPath.subList(0, fieldPath.size() - 1) : List.of();
+
+        Object jdbcValue = c.getValue();
+
+        String fromAlias = nq.sqlAliasFor(relationPath);
+        return relations.isEmpty()
+                ? opToCondition(DSL.field(DSL.name(fromAlias, columnRef)), c.getOperator(), jdbcValue)
+                : existsForChain(nq, meta, rootTableName, relationPath, relations, columnRef, c.getOperator(), jdbcValue);
+    }
+
+    private Condition existsForChain(NormalizedQuery nq,
+                                    QueryMeta meta,
+                                    String rootTableName,
+                                    List<String> fromRelationPath,
+                                    List<String> relations,
+                                    String columnName,
+                                    Operator operator,
+                                    Object jdbcValue) {
+        String relKey = relations.getFirst();
+        TableMeta fromTable = resolveTableByRelationChainStatic(meta, rootTableName, fromRelationPath);
+        RelationMeta rel = fromTable != null ? fromTable.getRelations().get(relKey) : null;
+        if (rel == null) throw new IllegalArgumentException("Relation not found: " + relKey + " in table " + (fromTable != null ? fromTable.getName() : rootTableName));
+
+        List<String> toRelationPath = new ArrayList<>(fromRelationPath);
+        toRelationPath.add(relKey);
+        String fromAlias = nq.sqlAliasFor(fromRelationPath);
+        String toAlias = nq.sqlAliasFor(toRelationPath);
+        String toTableName = rel.getToTable();
+        Table<?> toTable = DSL.table(DSL.name(meta.getTables().get(toTableName).getName())).as(toAlias);
+        Condition link = DSL.field(DSL.name(toAlias, rel.getToColumn())).eq(DSL.field(DSL.name(fromAlias, rel.getFromColumn())));
+
+        if (relations.size() == 1) {
+            Condition leaf = opToCondition(DSL.field(DSL.name(toAlias, columnName)), operator, jdbcValue);
+            return DSL.exists(dsl.selectOne().from(toTable).where(link.and(leaf)));
         }
-        StringBuilder subwhere = new StringBuilder();
-        subwhere.append(" (");
-        for (Node n : criteria.getCriteria()) {
-            if (subwhere.length() > 2) {
-                subwhere.append((Logician.AND.equals(criteria.getLogician()) ? " AND" : " OR"));
-            }
-            if (n instanceof Criteria) {
-                subwhere.append(parseCriteria(target, (Criteria) n, aliasesMapping));
-            } else if (n instanceof Criterion) {
-                subwhere.append(mapToCondition(target, (Criterion) n, aliasesMapping));
-            }
+
+        Condition inner = existsForChain(nq, meta, rootTableName, toRelationPath, relations.subList(1, relations.size()), columnName, operator, jdbcValue);
+        return DSL.exists(dsl.selectOne().from(toTable).where(link.and(inner)));
+    }
+
+    private static Condition opToCondition(Field<Object> f, Operator op, Object v) {
+        return switch (op) {
+            case EQ -> v == null ? f.isNull() : f.eq(v);
+            case NE -> v == null ? f.isNotNull() : f.ne(v);
+            case GT -> f.gt(v);
+            case GTE -> f.ge(v);
+            case LT -> f.lt(v);
+            case LTE -> f.le(v);
+            case LIKE -> f.like(Objects.toString(v, ""));
+            case ILIKE -> DSL.condition("{0} ILIKE {1}", f, DSL.val(Objects.toString(v, "")));
+            case IN -> (v instanceof Collection<?> c) ? f.in(c) : f.in(v);
+            case NIN -> (v instanceof Collection<?> c) ? f.notIn(c) : f.notIn(v);
+            case NULL -> f.isNull();
+            case NOT_NULL -> f.isNotNull();
+            case BETWEEN -> (v instanceof List<?> l && l.size() >= 2) ? f.between(l.get(0)).and(l.get(1)) : DSL.trueCondition();
+        };
+    }
+
+    private Field<JSONB> buildJsonForSelect(NormalizedSelect select, QueryMeta meta) {
+        String tableName = select.getTableName();
+        String sqlAlias = select.getSqlAlias();
+        TableMeta table = meta.getTables().get(tableName);
+        if (table == null) throw new IllegalArgumentException("Table not found in meta: " + tableName);
+
+        List<Field<?>> args = new ArrayList<>();
+
+        select.getColumns().forEach(c -> {
+            args.add(DSL.inline(c.getOutputKey()).cast(String.class));
+            args.add(DSL.field(DSL.name(sqlAlias, c.getPhysicalName())));
+        });
+
+        select.getRelations().forEach((relAlias, childSel) -> {
+            RelationMeta rel = table.getRelations().get(relAlias);
+            if (rel == null) return;
+
+            Field<JSONB> childJson = buildJsonForSelect(childSel, meta);
+            String childPhysical = meta.getTables().get(rel.getToTable()).getName();
+            Table<?> childTable = DSL.table(DSL.name(childPhysical)).as(childSel.getSqlAlias());
+
+            Condition joinCond = DSL.field(DSL.name(childSel.getSqlAlias(), rel.getToColumn()))
+                    .eq(DSL.field(DSL.name(sqlAlias, rel.getFromColumn())));
+
+            Field<JSONB> value = rel.isOneToMany()
+                    ? oneToManyJson(childJson, childTable, joinCond)
+                    : manyToOneJson(childJson, childTable, joinCond);
+
+            args.add(DSL.inline(relAlias).cast(String.class));
+            args.add(value);
+        });
+
+        if (args.isEmpty()) {
+            return DSL.field("'{}'::jsonb", JSONB.class);
         }
-        subwhere.append(")");
-        return subwhere.toString();
+        return DSL.function("jsonb_build_object", JSONB.class, args.toArray(Field[]::new));
     }
 
-    private String mapToCondition(String target, Criterion c, Map<String, String> aliasesMapping) {
-        String sqlAlias = c.getField().size() == 1 ? target : c.getField().get(c.getField().size() - 2);
-        String columnRef = c.getField().getLast();
-        String columnName = aliasesMapping.getOrDefault(columnRef, columnRef);
-        return String.format(" \"%s\".\"%s\" %s ?", sqlAlias, columnName, getSqlOperator(c.getOperator()));
+    private Field<JSONB> manyToOneJson(Field<JSONB> childJson, Table<?> childTable, Condition joinCond) {
+        return dsl.select(childJson)
+                .from(childTable)
+                .where(joinCond)
+                .limit(1)
+                .asField();
     }
 
-    private String getSqlOperator(Operator operator) {
-        switch (operator) {
-            case EQ:
-                return "=";
-            case NE:
-                return "!=";
-            case LT:
-                return "<";
-            case GT:
-                return ">";
-            default:
-                throw new IllegalArgumentException("Unsupported operator: " + operator);
-        }
-    }
-
-    private String buildSelect(String target, List<List<String>> select, QueryMeta meta, String tableName) {
-        Map<String, String> aliasesMapping = metaAliasMapper.buildAliasesMapping(meta);
-        return select.isEmpty() ? defaultSelect(target, meta, tableName) : "SELECT " + select
-                .stream()
-                .map((List<String> path) -> {
-                    if (path.size() == 1) {
-                        String physical = path.getFirst();
-                        TableMeta root = meta.getTables().get(tableName);
-                        ColumnMeta cm = root != null ? root.getColumns().get(physical) : null;
-                        String outKey = cm != null && cm.getAlias() != null && !cm.getAlias().isBlank() ? cm.getAlias() : physical;
-                        return String.format("\"%s\".\"%s\" AS \"%s\"", target, physical, outKey);
-                    }
-                    String relAlias = path.get(path.size() - 2);
-                    String physical = path.getLast();
-                    String toTableName = aliasesMapping.get(relAlias);
-                    TableMeta child = toTableName != null ? meta.getTables().get(toTableName) : null;
-                    ColumnMeta cm = child != null ? child.getColumns().get(physical) : null;
-                    String outField = cm != null && cm.getAlias() != null && !cm.getAlias().isBlank() ? cm.getAlias() : physical;
-                    return String.format("\"%s\".\"%s\" AS \"%s\"", relAlias, physical, relAlias + StringUtils.capitalize(outField));
-                })
-                .collect(Collectors.joining(", "));
-    }
-
-    private String defaultSelect(String target, QueryMeta meta, String tableName) {
-        List<String> parts = meta.getTables().get(tableName).getColumns().values().stream()
-                .map(c -> String.format("\"%s\".\"%s\" AS \"%s\"", target, c.getName(), c.getAlias()))
-                .toList();
-        return parts.isEmpty() ? "SELECT 1" : "SELECT " + String.join(", ", parts);
-    }
-
-    private String buildFrom(List<List<String>> select, Criteria where, QueryMeta meta, Map<String, String> aliasesMapping, String target, String tableName) {
-        String physicalName = meta.getTables().get(tableName).getName();
-        String from = " FROM \"" + physicalName + "\" AS \"" + target + "\"";
-        List<List<String>> chains = collectChains(select, where);
-        if (chains.isEmpty()) return from;
-        List<Join> joins = new ArrayList<>();
-        Set<String> seenAliases = new HashSet<>();
-        for (List<String> chain : chains) {
-            for (Join j : toJoins(meta, target, tableName, chain)) {
-                String alias = j.joinAlias();
-                if (seenAliases.add(alias)) joins.add(j);
-            }
-        }
-        return from + joins.stream().map(Join::toSql).collect(Collectors.joining(" "));
-    }
-
-    private List<List<String>> collectChains(List<List<String>> select, Criteria where) {
-        List<List<String>> fromSelect = select.stream().filter(p -> p.size() >= 2).map(p -> List.copyOf(p.subList(0, p.size() - 1))).toList();
-        List<List<String>> fromWhere = getChainsFromWhere(where);
-        return Stream.concat(fromSelect.stream(), fromWhere.stream())
-                .distinct()
-                .sorted(Comparator.comparingInt(List::size))
-                .toList();
-    }
-
-    private List<List<String>> getChainsFromWhere(Criteria where) {
-        List<List<String>> out = new ArrayList<>();
-        for (Node n : where.getCriteria()) {
-            if (n instanceof Criteria) out.addAll(getChainsFromWhere((Criteria) n));
-            else if (n instanceof Criterion) {
-                List<String> f = ((Criterion) n).getField();
-                if (f.size() > 1) out.add(List.copyOf(f.subList(0, f.size() - 1)));
-            }
-        }
-        return out;
-    }
-
-    private record Join(String tableName, String joinAlias, String leftAlias, String leftColumn, String rightColumn) {
-        String toSql() {
-            return String.format(" LEFT JOIN \"%s\" AS \"%s\" ON \"%s\".\"%s\" = \"%s\".\"%s\"",
-                    tableName, joinAlias, leftAlias, leftColumn, joinAlias, rightColumn);
-        }
-    }
-
-    private List<Join> toJoins(QueryMeta meta, String currentTableAlias, String currentTableName, List<String> chain) {
-        String first = chain.get(0);
-        TableMeta table = meta.getTables().get(currentTableName);
-        if (table == null) throw new IllegalArgumentException("Table not found: " + currentTableName);
-        RelationMeta r = table.getRelations().get(first);
-        if (r == null) throw new IllegalArgumentException("Relation not found: " + first + " in table " + currentTableName);
-        Join join = new Join(r.getToTable(), r.getAlias(), currentTableAlias, r.getFromColumn(), r.getToColumn());
-        List<Join> out = new ArrayList<>();
-        out.add(join);
-        if (chain.size() > 1) {
-            out.addAll(toJoins(meta, r.getAlias(), r.getToTable(), chain.subList(1, chain.size())));
-        }
-        return out;
-    }
-
-    private List<Object> mapCriteriaToParams(Criteria where, QueryMeta meta, String tableName, Map<String, String> aliasMapping) {
-        List<Object> params = new ArrayList<>();
-        for (Node node : where.getCriteria()) {
-            if (node instanceof Criteria) {
-                params.addAll(mapCriteriaToParams((Criteria) node, meta, tableName, aliasMapping));
-            } else if (node instanceof Criterion) {
-                Criterion c = (Criterion) node;
-                List<String> field = c.getField();
-                TableMeta table = field.size() == 1
-                        ? meta.getTables().get(tableName)
-                        : resolveTableByRelationChainStatic(meta, tableName, field.subList(0, field.size() - 1));
-                String columnRef = field.get(field.size() - 1);
-                String columnName = aliasMapping.getOrDefault(columnRef, columnRef);
-                ColumnMeta cm = table != null ? table.getColumns().get(columnName) : null;
-                params.add(valueConverter.toJdbcValue(c.getValue(), cm != null ? cm.getDataType() : null));
-            }
-        }
-        return params;
+    private Field<JSONB> oneToManyJson(Field<JSONB> childJson, Table<?> childTable, Condition joinCond) {
+        var rows = dsl.select(childJson.as("x"))
+                .from(childTable)
+                .where(joinCond)
+                .asTable("t");
+        Field<JSONB> x = DSL.field(DSL.name("t", "x"), JSONB.class);
+        Field<JSONB> agg = DSL.field("coalesce(jsonb_agg({0}), '[]'::jsonb)", JSONB.class, x);
+        return dsl.select(agg).from(rows).asField();
     }
 
 }

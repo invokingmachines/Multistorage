@@ -69,7 +69,16 @@ public abstract class AbstractE2ETest {
 
     @SuppressWarnings("unchecked")
     protected static List<Map<String, Object>> asSearchResult(ResponseEntity<Object> r) {
-        return (List<Map<String, Object>>) r.getBody();
+        Object body = r.getBody();
+        if (body instanceof List) return (List<Map<String, Object>>) body;
+        if (body instanceof Map map && map.containsKey("content")) return (List<Map<String, Object>>) map.get("content");
+        return List.of();
+    }
+
+    @SuppressWarnings("unchecked")
+    protected static Map<String, Object> asPagedSearchResult(ResponseEntity<Object> r) {
+        Object body = r.getBody();
+        return body instanceof Map ? (Map<String, Object>) body : Map.of();
     }
 
     protected ResponseEntity<Map<String, Object>> postUpsert(String entity, Object body) {

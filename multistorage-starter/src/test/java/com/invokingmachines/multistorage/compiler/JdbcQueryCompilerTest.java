@@ -9,9 +9,13 @@ import com.invokingmachines.multistorage.dto.query.Query;
 import com.invokingmachines.multistorage.query.dto.CompiledQuery;
 import com.invokingmachines.multistorage.query.service.MetaAliasMapper;
 import com.invokingmachines.multistorage.query.service.QueryCompiler;
+import com.invokingmachines.multistorage.query.service.QueryNormalizer;
 import com.invokingmachines.multistorage.query.service.ValueConverter;
+import com.invokingmachines.multistorage.query.dto.normalized.NormalizedQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -19,11 +23,13 @@ class JdbcQueryCompilerTest {
 
     private ObjectMapper objectMapper;
     private QueryCompiler compiler;
+    private QueryNormalizer normalizer;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        compiler = new QueryCompiler(new MetaAliasMapper(), new ValueConverter());
+        normalizer = new QueryNormalizer(new MetaAliasMapper(), new ValueConverter());
+        compiler = new QueryCompiler(DSL.using(SQLDialect.POSTGRES));
     }
 
     @Test
@@ -88,13 +94,15 @@ class JdbcQueryCompilerTest {
 }
                 """;
         Query query = objectMapper.readValue(json, Query.class);
-        CompiledQuery result = compiler.compile(query, qm, "parent");
+        NormalizedQuery nq = normalizer.normalize(query, qm, "parent");
+        CompiledQuery result = compiler.compile(nq, qm);
 
-        assertThat(result.getSql()).contains("SELECT");
-        assertThat(result.getSql()).contains("\"parent_db\"");
-        assertThat(result.getSql()).contains("\"name\"");
-        assertThat(result.getSql()).contains("=");
-        assertThat(result.getParameters()).containsExactly("test", "test", "test");
+        String sql = DSL.using(SQLDialect.POSTGRES).render(result.getQuery());
+        assertThat(sql).containsIgnoringCase("select");
+        assertThat(sql).contains("\"parent_db\"");
+        assertThat(sql).containsIgnoringCase("exists");
+        var binds = result.getQuery().getBindValues();
+        assertThat(binds.subList(binds.size() - 3, binds.size())).containsExactly("test", "test", "test");
     }
 //
 //    @Test

@@ -5,6 +5,8 @@ import com.invokingmachines.multistorage.dto.meta.TableMeta;
 import com.invokingmachines.multistorage.pipeline.OperationType;
 import com.invokingmachines.multistorage.pipeline.meta.QueryMetaFilter;
 import com.invokingmachines.multistorage.query.service.QueryCompiler;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Set;
 
@@ -21,7 +23,7 @@ public class DeleteRequestValidator implements RequestValidator<Object> {
         String tableName = QueryCompiler.resolveTargetToTableName(fullMeta, targetTableName);
         TableMeta table = fullMeta.getTables().get(tableName);
         if (table == null) {
-            throw new IllegalArgumentException("Table not found: " + targetTableName);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Table not found: " + targetTableName);
         }
         return QueryMetaFilter.subMeta(fullMeta, Set.of(tableName));
     }

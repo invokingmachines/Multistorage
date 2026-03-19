@@ -1,4 +1,4 @@
-package com.invokingmachines.multistorage.query;
+package com.invokingmachines.multistorage.meta.controller;
 
 import com.invokingmachines.multistorage.dto.api.MetaDiscoveryDto;
 import com.invokingmachines.multistorage.query.service.MetaDiscoveryService;
