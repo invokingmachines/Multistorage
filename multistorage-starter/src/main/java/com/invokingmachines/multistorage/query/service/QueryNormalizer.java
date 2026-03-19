@@ -101,6 +101,7 @@ public class QueryNormalizer {
 
             if (path.size() == 1 && "*".equals(path.getFirst())) {
                 root.getColumns().values().stream()
+                        .filter(c -> !Boolean.FALSE.equals(c.getReadable()))
                         .distinct()
                         .map(ColumnMeta::getName)
                         .map(List::of)
@@ -112,6 +113,7 @@ public class QueryNormalizer {
                 List<String> chain = path.subList(0, path.size() - 1);
                 TableMeta t = QueryCompiler.resolveTableByRelationChainStatic(meta, rootTableName, chain);
                 t.getColumns().values().stream()
+                        .filter(c -> !Boolean.FALSE.equals(c.getReadable()))
                         .distinct()
                         .map(ColumnMeta::getName)
                         .map(col -> {

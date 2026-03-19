@@ -10,8 +10,24 @@
   padding: 24px;
 }
 
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
 h1 {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: 24px;
   font-weight: 600;
+}
+
+.top-button {
+  border: 1px solid #000000;
+  background: #ffffff;
+  color: #000000;
+  padding: 8px 12px;
+  text-decoration: none;
+  cursor: pointer;
 }

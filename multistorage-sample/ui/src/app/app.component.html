@@ -1,5 +1,11 @@
 <main class="page">
-  <h1>Multistorage Sample UI</h1>
-  <app-menu />
+  <div class="top-bar">
+    <h1>Multistorage Sample UI</h1>
+    @if (isAdminPage) {
+      <button type="button" class="top-button" (click)="goBack()">Back</button>
+    } @else {
+      <a class="top-button" [routerLink]="['/admin']">Admin</a>
+    }
+  </div>
   <router-outlet />
 </main>

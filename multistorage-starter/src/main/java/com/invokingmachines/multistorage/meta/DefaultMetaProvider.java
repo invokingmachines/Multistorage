@@ -92,6 +92,8 @@ public class DefaultMetaProvider implements MetaProvider {
                 .name(c.getName())
                 .alias(c.getAlias())
                 .dataType(c.getDataType())
+                .readable(c.getReadable())
+                .searchable(c.getSearchable())
                 .build();
     }
 

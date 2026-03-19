@@ -1,6 +1,7 @@
 package com.invokingmachines.multistorage.pipeline.validation;
 
 import com.invokingmachines.multistorage.dto.meta.QueryMeta;
+import com.invokingmachines.multistorage.dto.meta.ColumnMeta;
 import com.invokingmachines.multistorage.dto.meta.RelationMeta;
 import com.invokingmachines.multistorage.dto.meta.TableMeta;
 import com.invokingmachines.multistorage.dto.query.Criteria;
@@ -31,7 +32,7 @@ public class SearchRequestValidator implements RequestValidator<Query> {
         if (request.getSelect() != null) {
             for (List<String> path : request.getSelect()) {
                 if (path != null && !path.isEmpty() && !"*".equals(path.get(path.size() - 1))) {
-                    validatePath(path, tableName, fullMeta);
+                    validatePath(path, tableName, fullMeta, true);
                 } else if (path != null && path.size() >= 2 && "*".equals(path.get(path.size() - 1))) {
                     validateRelationChain(path.subList(0, path.size() - 1), tableName, fullMeta);
                 }
@@ -43,9 +44,9 @@ public class SearchRequestValidator implements RequestValidator<Query> {
         return QueryMetaFilter.filterForSearch(fullMeta, tableName, request);
     }
 
-    private void validatePath(List<String> path, String tableName, QueryMeta meta) {
+    private void validatePath(List<String> path, String tableName, QueryMeta meta, boolean forSelect) {
         if (path.size() == 1) {
-            validateColumn(tableName, path.get(0), meta);
+            validateColumn(tableName, path.get(0), meta, forSelect);
             return;
         }
         TableMeta current = meta.getTables().get(tableName);
@@ -56,7 +57,7 @@ public class SearchRequestValidator implements RequestValidator<Query> {
             }
             current = meta.getTables().get(rel.getToTable());
         }
-        validateColumn(current.getName(), path.get(path.size() - 1), meta);
+        validateColumn(current.getName(), path.get(path.size() - 1), meta, forSelect);
     }
 
     private void validateRelationChain(List<String> chain, String tableName, QueryMeta meta) {
@@ -70,11 +71,21 @@ public class SearchRequestValidator implements RequestValidator<Query> {
         }
     }
 
-    private void validateColumn(String tableName, String columnRef, QueryMeta meta) {
+    private void validateColumn(String tableName, String columnRef, QueryMeta meta, boolean forSelect) {
         TableMeta table = meta.getTables().get(tableName);
-        if (table.getColumns().containsKey(columnRef)) return;
-        if (table.getColumns().values().stream().anyMatch(c -> columnRef.equals(c.getAlias()))) return;
-        throw new IllegalArgumentException("Column not found: " + columnRef + " in table " + tableName);
+        ColumnMeta column = table.getColumns().get(columnRef);
+        if (column == null) {
+            column = table.getColumns().values().stream().filter(c -> columnRef.equals(c.getAlias())).findFirst().orElse(null);
+        }
+        if (column == null) {
+            throw new IllegalArgumentException("Column not found: " + columnRef + " in table " + tableName);
+        }
+        if (forSelect && Boolean.FALSE.equals(column.getReadable())) {
+            throw new IllegalArgumentException("Column is not readable: " + columnRef + " in table " + tableName);
+        }
+        if (!forSelect && Boolean.FALSE.equals(column.getSearchable())) {
+            throw new IllegalArgumentException("Column is not searchable: " + columnRef + " in table " + tableName);
+        }
     }
 
     private void validateCriteria(Criteria criteria, String tableName, QueryMeta meta) {
@@ -82,7 +93,7 @@ public class SearchRequestValidator implements RequestValidator<Query> {
             if (n instanceof Criterion) {
                 List<String> field = ((Criterion) n).getField();
                 if (field != null && !field.isEmpty()) {
-                    validatePath(field, tableName, meta);
+                    validatePath(field, tableName, meta, false);
                 }
             } else if (n instanceof Criteria) {
                 validateCriteria((Criteria) n, tableName, meta);

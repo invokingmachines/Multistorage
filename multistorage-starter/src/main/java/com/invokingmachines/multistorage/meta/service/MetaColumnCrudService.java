@@ -41,7 +41,7 @@ public class MetaColumnCrudService {
         String proposedAlias = request.getAlias() != null ? request.getAlias() : request.getName();
         boolean isUpdate = repository.findByTableIdAndName(table.getId(), request.getName()).isPresent();
         if (request.getAlias() != null || !isUpdate) {
-            validateColumnAliasNotConflictingWithName(table.getId(), proposedAlias);
+            validateColumnAliasNotConflictingWithName(table.getId(), proposedAlias, request.getName());
         }
         return repository.findByTableIdAndName(table.getId(), request.getName())
                 .map(e -> {
@@ -61,10 +61,11 @@ public class MetaColumnCrudService {
                         .build()), table));
     }
 
-    private void validateColumnAliasNotConflictingWithName(UUID tableId, String proposedAlias) {
+    private void validateColumnAliasNotConflictingWithName(UUID tableId, String proposedAlias, String currentColumnName) {
         if (proposedAlias == null || proposedAlias.isBlank()) return;
         boolean nameConflict = repository.findByTableId(tableId).stream()
-                .anyMatch(c -> proposedAlias.equals(c.getName()));
+                .anyMatch(c -> proposedAlias.equals(c.getName())
+                        && (currentColumnName == null || !currentColumnName.equals(c.getName())));
         if (nameConflict) {
             throw new IllegalArgumentException(
                     "Alias '" + proposedAlias + "' conflicts with existing column name. Alias must be unique among names and aliases.");

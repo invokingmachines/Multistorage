@@ -47,6 +47,7 @@ public class MetaDiscoveryService {
                 .map(MetaRelationEntity::getAlias)
                 .toList();
         List<MetaDiscoveryDto.ColumnDiscoveryDto> columns = columnEntities.stream()
+                .filter(c -> !Boolean.FALSE.equals(c.getReadable()))
                 .map(this::toColumnDiscovery)
                 .toList();
         return MetaDiscoveryDto.TableDiscoveryDto.builder()
@@ -63,6 +64,7 @@ public class MetaDiscoveryService {
                 .alias(c.getAlias())
                 .name(c.getName())
                 .dataType(c.getDataType())
+                .searchable(c.getSearchable())
                 .build();
     }
 }

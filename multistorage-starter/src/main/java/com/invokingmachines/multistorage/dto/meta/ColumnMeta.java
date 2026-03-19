@@ -11,4 +11,6 @@ public class ColumnMeta {
     private String name;
     private String alias;
     private String dataType;
+    private Boolean readable;
+    private Boolean searchable;
 }
