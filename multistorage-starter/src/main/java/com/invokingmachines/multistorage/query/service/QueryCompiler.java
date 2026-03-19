@@ -17,6 +17,7 @@ import org.jooq.Field;
 import org.jooq.JSONB;
 import org.jooq.Select;
 import org.jooq.SelectConditionStep;
+import org.jooq.SelectLimitStep;
 import org.jooq.Table;
 import org.jooq.impl.DSL;
 import org.springframework.stereotype.Component;
@@ -39,7 +40,12 @@ public class QueryCompiler {
         Field<JSONB> json = buildJsonForSelect(nq.getSelect(), meta);
 
         SelectConditionStep<?> base = dsl.select(json.as("data")).from(rootTable).where(where);
-        org.jooq.ResultQuery<?> q = nq.isPaged() ? base.limit(nq.getLimit()).offset(nq.getOffset()) : base;
+        SelectLimitStep<?> ordered = nq.getSortBy() == null
+                ? base
+                : (nq.isSortDesc()
+                        ? base.orderBy(DSL.field(DSL.name(rootSqlAlias, nq.getSortBy())).desc())
+                        : base.orderBy(DSL.field(DSL.name(rootSqlAlias, nq.getSortBy())).asc()));
+        var q = nq.isPaged() ? ordered.limit(nq.getLimit()).offset(nq.getOffset()) : ordered;
 
         return CompiledQuery.builder()
                 .query(q)

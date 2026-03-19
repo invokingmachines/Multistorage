@@ -15,6 +15,8 @@ public final class NormalizedQuery {
     private final boolean paged;
     private final int limit;
     private final int offset;
+    private final String sortBy;
+    private final boolean sortDesc;
 
     public NormalizedQuery(String rootSqlAlias,
                            String rootTableName,
@@ -23,7 +25,9 @@ public final class NormalizedQuery {
                            Map<String, String> sqlAliasByRelationPath,
                            boolean paged,
                            int limit,
-                           int offset) {
+                           int offset,
+                           String sortBy,
+                           boolean sortDesc) {
         this.rootSqlAlias = rootSqlAlias;
         this.rootTableName = rootTableName;
         this.select = select;
@@ -32,6 +36,8 @@ public final class NormalizedQuery {
         this.paged = paged;
         this.limit = limit;
         this.offset = offset;
+        this.sortBy = sortBy;
+        this.sortDesc = sortDesc;
     }
 
     public String getRootSqlAlias() {
@@ -64,6 +70,14 @@ public final class NormalizedQuery {
 
     public int getOffset() {
         return offset;
+    }
+
+    public String getSortBy() {
+        return sortBy;
+    }
+
+    public boolean isSortDesc() {
+        return sortDesc;
     }
 
     public String sqlAliasFor(List<String> relationPath) {

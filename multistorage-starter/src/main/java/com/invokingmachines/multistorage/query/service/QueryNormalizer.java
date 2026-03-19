@@ -38,12 +38,26 @@ public class QueryNormalizer {
 
         Criteria where = normalizeWhere(query.getWhere(), meta, rootTableName, aliases, ctx);
         NormalizedSelect select = normalizeSelect(query.getSelect(), meta, rootTableName, aliases, ctx, List.of());
+        String sortBy = normalizeSortBy(query.sortBy(), meta, rootTableName);
+        boolean sortDesc = query.sortDesc();
 
         boolean paged = query.hasPagination();
         int limit = paged ? query.effectiveSize() : -1;
         int offset = paged ? query.effectivePage() * query.effectiveSize() : 0;
 
-        return new NormalizedQuery(rootSqlAlias, rootTableName, select, where, ctx.aliasByPath, paged, limit, offset);
+        return new NormalizedQuery(rootSqlAlias, rootTableName, select, where, ctx.aliasByPath, paged, limit, offset, sortBy, sortDesc);
+    }
+
+    private String normalizeSortBy(String sortBy, QueryMeta meta, String rootTableName) {
+        if (sortBy == null || sortBy.isBlank()) {
+            return null;
+        }
+        TableMeta root = meta.getTables().get(rootTableName);
+        if (root == null) {
+            return null;
+        }
+        String resolved = metaAliasMapper.resolveColumnName(root, sortBy.strip());
+        return resolved != null ? resolved : null;
     }
 
     private NormalizedSelect normalizeSelect(List<List<String>> select,

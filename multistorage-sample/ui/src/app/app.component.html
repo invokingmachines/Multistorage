@@ -1,24 +1,5 @@
 <main class="page">
   <h1>Multistorage Sample UI</h1>
-
-  @if (loadingMeta) {
-    <p>Loading metadata...</p>
-  }
-
-  @if (errorMessage) {
-    <p class="error">{{ errorMessage }}</p>
-  }
-
-  <section class="tables-panel">
-    @for (table of tables; track table.pathSegment) {
-      <a
-        class="table-button"
-        [routerLink]="['/browser', table.pathSegment]"
-      >
-        {{ table.alias || table.name }}
-      </a>
-    }
-  </section>
-
+  <app-menu />
   <router-outlet />
 </main>

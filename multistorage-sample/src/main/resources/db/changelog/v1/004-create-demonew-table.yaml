@@ -1,0 +1,45 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-demonew-table
+      author: system
+      changes:
+        - createTable:
+            tableName: demonew
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: namenamename
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: descr
+                  type: TEXT
+                  constraints:
+                    nullable: true
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - insert:
+            tableName: demonew
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 2
+              - column:
+                  name: namenamename
+                  value: "random 2"
+              - column:
+                  name: descr
+                  value: "Description for parent 2"
+              - column:
+                  name: created_at
+                  valueComputed: CURRENT_TIMESTAMP
