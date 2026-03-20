@@ -1,0 +1,127 @@
+.table-section {
+  margin-top: 8px;
+}
+
+.layout {
+  display: flex;
+  gap: 16px;
+}
+
+.left-pane {
+  width: 30%;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.right-pane {
+  width: 70%;
+}
+
+.menu-over-table {
+  display: flex;
+  justify-content: center;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+button {
+  border: 1px solid #000000;
+  background: #ffffff;
+  color: #000000;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.error {
+  color: #8a0000;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border: 1px solid #c8c8c8;
+}
+
+th,
+td {
+  border: 1px solid #c8c8c8;
+  text-align: left;
+  padding: 8px;
+  vertical-align: top;
+  background: #ffffff;
+}
+
+th {
+  background: #ffffff;
+}
+
+.column-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.column-label {
+  white-space: nowrap;
+}
+
+.sort-button {
+  border: 1px solid #c8c8c8;
+  padding: 1px 5px;
+  font-size: 12px;
+  line-height: 1;
+  background: #ffffff;
+}
+
+th small {
+  display: block;
+  margin-top: 2px;
+  color: #333333;
+  font-weight: 400;
+}
+
+.filter-row th {
+  background: #ffffff;
+}
+
+input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #c5c5c5;
+  padding: 6px;
+  background: #ffffff;
+  color: #000000;
+}
+
+.date-range {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+}
+
+.date-range input {
+  width: calc(50% - 3px);
+}
+
+.not-searchable {
+  color: #666666;
+  font-size: 12px;
+}

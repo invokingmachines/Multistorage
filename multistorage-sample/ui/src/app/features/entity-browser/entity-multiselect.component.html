@@ -1,0 +1,32 @@
+<section class="multiselect">
+  <h3>Entity multi-select</h3>
+  <input
+    type="text"
+    placeholder="Search in string fields..."
+    [ngModel]="query"
+    (ngModelChange)="onQueryChange($event)"
+  />
+
+  @if (loading) {
+    <p>Searching...</p>
+  }
+
+  @if (options.length > 0) {
+    <div class="options">
+      @for (row of options; track rowKey(row)) {
+        <label class="option">
+          <input type="checkbox" [checked]="isSelected(row)" (change)="toggle(row)" />
+          <span>{{ label(row) }}</span>
+        </label>
+      }
+    </div>
+  }
+
+  @if (selected.length > 0) {
+    <div class="selected">
+      @for (row of selected; track rowKey(row)) {
+        <span class="chip">{{ label(row) }}</span>
+      }
+    </div>
+  }
+</section>

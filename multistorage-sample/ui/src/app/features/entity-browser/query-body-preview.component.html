@@ -1,0 +1,8 @@
+<section class="preview">
+  @if (path) {
+    <h3>Request path</h3>
+    <pre>{{ method }} {{ path }}</pre>
+  }
+  <h3>{{ title }}</h3>
+  <pre>{{ formattedBody() }}</pre>
+</section>

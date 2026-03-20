@@ -1,0 +1,58 @@
+.admin-page {
+  margin-top: 8px;
+}
+
+h2 {
+  margin: 16px 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.error {
+  color: #8a0000;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border: 1px solid #c8c8c8;
+}
+
+th,
+td {
+  border: 1px solid #c8c8c8;
+  text-align: left;
+  padding: 8px;
+  vertical-align: top;
+  background: #ffffff;
+}
+
+input[type='text'],
+input[type='number'],
+input[type='datetime-local'] {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #c5c5c5;
+  padding: 6px;
+  background: #ffffff;
+  color: #000000;
+}
+
+button {
+  border: 1px solid #000000;
+  background: #ffffff;
+  color: #000000;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+button.save-dirty {
+  background: #e6ffe6;
+  border-color: #1b8f3a;
+  color: #1b8f3a;
+}

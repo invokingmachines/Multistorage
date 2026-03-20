@@ -1,0 +1,15 @@
+@if (loadingMeta) {
+  <p>Loading metadata...</p>
+}
+
+@if (errorMessage) {
+  <p class="error">{{ errorMessage }}</p>
+}
+
+<section class="tables-panel" [class.tables-panel--center]="centered">
+  @for (table of tables; track table.pathSegment) {
+    <a class="table-button" [routerLink]="['/browser', table.pathSegment]">
+      {{ table.alias || table.name }}
+    </a>
+  }
+</section>
