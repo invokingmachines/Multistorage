@@ -40,6 +40,21 @@ public class MetaRelationCrudService {
     public MetaRelationDto upsert(MetaRelationRequest request) {
         MetaTableEntity fromTable = metaTableCrudService.resolveTable(request.getFromTable()).orElseThrow();
         MetaTableEntity toTable = metaTableCrudService.resolveTable(request.getToTable()).orElseThrow();
+        if (request.getId() != null) {
+            MetaRelationEntity existing = repository.findById(request.getId()).orElseThrow();
+            existing.setFromTable(fromTable);
+            existing.setToTable(toTable);
+            if (request.getAlias() != null) {
+                validateRelationAliasNotConflictingWithColumnName(fromTable.getId(), request.getAlias());
+                existing.setAlias(request.getAlias());
+            }
+            if (request.getFromColumn() != null) existing.setFromColumn(request.getFromColumn());
+            if (request.getToColumn() != null) existing.setToColumn(request.getToColumn());
+            if (request.getOneToMany() != null) existing.setOneToMany(request.getOneToMany());
+            if (request.getCascadeType() != null) existing.setCascadeType(request.getCascadeType());
+            if (request.getActive() != null) existing.setActive(request.getActive());
+            return toDto(repository.save(existing));
+        }
         if (request.getAlias() != null) {
             validateRelationAliasNotConflictingWithColumnName(fromTable.getId(), request.getAlias());
         }
@@ -84,6 +99,7 @@ public class MetaRelationCrudService {
 
     private MetaRelationDto toDto(MetaRelationEntity e) {
         return MetaRelationDto.builder()
+                .id(e.getId())
                 .fromTable(e.getFromTable().getAlias())
                 .toTable(e.getToTable().getAlias())
                 .fromColumn(e.getFromColumn())

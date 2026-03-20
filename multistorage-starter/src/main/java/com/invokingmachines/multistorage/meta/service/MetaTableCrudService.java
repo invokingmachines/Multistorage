@@ -32,6 +32,18 @@ public class MetaTableCrudService {
 
     @Transactional
     public MetaTableDto upsert(MetaTableRequest request) {
+        if (request.getId() != null) {
+            MetaTableEntity existing = repository.findById(request.getId()).orElseThrow();
+            if (request.getName() != null) {
+                existing.setName(request.getName());
+            }
+            if (request.getAlias() != null) {
+                validateAliasNotConflictingWithName(request.getAlias(), "table", name ->
+                        repository.findByName(name).filter(t -> !t.getId().equals(existing.getId())).isPresent());
+                existing.setAlias(request.getAlias());
+            }
+            return toDto(repository.save(existing));
+        }
         String proposedAlias = request.getAlias() != null ? request.getAlias() : request.getName();
         if (request.getAlias() != null || repository.findByName(request.getName()).isEmpty()) {
             validateAliasNotConflictingWithName(proposedAlias, "table", name -> repository.findByName(name).isPresent());
@@ -72,6 +84,7 @@ public class MetaTableCrudService {
 
     private MetaTableDto toDto(MetaTableEntity e) {
         return MetaTableDto.builder()
+                .id(e.getId())
                 .name(e.getName())
                 .alias(e.getAlias())
                 .createdAt(e.getCreatedAt())

@@ -38,6 +38,21 @@ public class MetaColumnCrudService {
     public MetaColumnDto upsert(String tableRef, MetaColumnRequest request) {
         String ref = tableRef != null ? tableRef : request.getTable();
         MetaTableEntity table = metaTableCrudService.resolveTable(ref).orElseThrow();
+        if (request.getId() != null) {
+            MetaColumnEntity existing = repository.findById(request.getId()).orElseThrow();
+            existing.setTable(table);
+            if (request.getName() != null) {
+                existing.setName(request.getName());
+            }
+            if (request.getAlias() != null) {
+                validateColumnAliasNotConflictingWithName(table.getId(), request.getAlias(), existing.getName());
+                existing.setAlias(request.getAlias());
+            }
+            if (request.getDataType() != null) existing.setDataType(request.getDataType());
+            if (request.getReadable() != null) existing.setReadable(request.getReadable());
+            if (request.getSearchable() != null) existing.setSearchable(request.getSearchable());
+            return toDto(repository.save(existing), table);
+        }
         String proposedAlias = request.getAlias() != null ? request.getAlias() : request.getName();
         boolean isUpdate = repository.findByTableIdAndName(table.getId(), request.getName()).isPresent();
         if (request.getAlias() != null || !isUpdate) {
@@ -86,6 +101,7 @@ public class MetaColumnCrudService {
 
     private MetaColumnDto toDto(MetaColumnEntity e, MetaTableEntity table) {
         return MetaColumnDto.builder()
+                .id(e.getId())
                 .table(table.getAlias())
                 .name(e.getName())
                 .alias(e.getAlias())

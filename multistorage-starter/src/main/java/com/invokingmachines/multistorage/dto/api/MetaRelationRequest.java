@@ -5,12 +5,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class MetaRelationRequest {
 
+    private UUID id;
     private String fromTable;
     private String toTable;
     private String fromColumn;

@@ -110,7 +110,7 @@ export class AdminComponent implements OnInit {
   }
 
   protected saveMetaTable(row: MetaTableDto): void {
-    this.api.upsertMetaTable({ name: String(row.name ?? ''), alias: String(row.alias ?? '') }).subscribe({
+    this.api.upsertMetaTable({ id: row.id, name: String(row.name ?? ''), alias: String(row.alias ?? '') }).subscribe({
       next: () => this.reload(),
       error: () => (this.errorMessage = 'Failed to save meta table.')
     });
@@ -120,6 +120,7 @@ export class AdminComponent implements OnInit {
     const tableRef = String(row.table ?? '');
     this.api
       .upsertMetaColumn(tableRef, {
+        id: row.id,
         table: String(row.table ?? ''),
         name: String(row.name ?? ''),
         alias: String(row.alias ?? ''),
@@ -136,6 +137,7 @@ export class AdminComponent implements OnInit {
   protected saveMetaRelation(row: MetaRelationDto): void {
     this.api
       .upsertMetaRelation({
+        id: row.id,
         fromTable: String(row.fromTable ?? ''),
         toTable: String(row.toTable ?? ''),
         fromColumn: String(row.fromColumn ?? ''),
@@ -144,7 +146,7 @@ export class AdminComponent implements OnInit {
         alias: String(row.alias ?? ''),
         cascadeType: row.cascadeType ? String(row.cascadeType) : null,
         active: Boolean(row.active)
-      } as unknown as Omit<MetaRelationDto, 'createdAt' | 'updatedAt'>)
+      } as Omit<MetaRelationDto, 'createdAt' | 'updatedAt'>)
       .subscribe({
         next: () => this.reload(),
         error: () => (this.errorMessage = 'Failed to save meta relation.')

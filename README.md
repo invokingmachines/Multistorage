@@ -16,6 +16,8 @@ Spring Boot starter that turns any application with a PostgreSQL database into a
   - receive request → validate request → preProcess handlers → operation → mapping to response → postProcess handlers
 - **Validation** — one validator per operation type:
   - **Search**: checks that all referenced fields/relations exist in metadata
+    - `select` is allowed only for columns with `readable = true`
+    - `where` is allowed only for columns with `searchable = true`
   - **Upsert**: checks that all fields exist; nested updates are allowed only when relation cascade != `NONE`
   - **Delete**: checks that target table exists
   - You can override/extend validation by providing your own `RequestValidator<?>` beans.
@@ -27,7 +29,11 @@ Spring Boot starter that turns any application with a PostgreSQL database into a
   - many-to-one → single object
   - Search and upsert responses are returned in a nested structure.
 - **Discovery** — `GET /multistorage/api/search/discovery?table=...` returns metadata for the client (tables, columns, relations).
+  - Discovery excludes columns with `readable = false`
+  - Discovery returns `searchable` flag for each visible column
 - **Metadata Admin API** — CRUD for metadata: `/multistorage/admin/meta/...` (tables, columns, relations). Liquibase creates meta schema on startup.
+  - Admin DTOs now include `id`
+  - Upsert semantics: if `id` is provided -> update, otherwise -> create
 - **Metadata customization** — `MetaCustomizer` bean can modify `QueryMeta` before compilation.
 - **OpenAPI** — endpoints under `/multistorage/api/**` are included in Swagger; operations are generated per entity and include request/response examples.
 
@@ -97,12 +103,14 @@ curl -X DELETE "http://localhost:8080/multistorage/api/<entity>/1"
 Body (`Query`):
 - **select** — list of paths (`["*"]`, `["relation", "*"]`, `["a","b","field"]`)
 - **where** — criteria tree (`logician`, `criteria[]`, leaf criterion with `field[]`, `operator`, `value`)
+- **sort** — object with `{ "by": "<column name|alias>", "order": "ASC|DESC" }`
 
 Example:
 
 ```json
 {
   "select": [["*"], ["childToParent", "*"]],
+  "sort": { "by": "name", "order": "ASC" },
   "where": {
     "logician": "AND",
     "criteria": [
@@ -165,6 +173,14 @@ To keep resolution deterministic, manual metadata updates validate alias uniquen
 - **Meta relation**: relation `alias` must not conflict with any column `name` within the same from-table.
 
 The rest of the system assumes aliases are unique and do not conflict with names.
+
+### Identity in admin upsert
+
+Admin upsert endpoints (`MetaTableController`, `MetaColumnController`, `MetaRelationController`) support identity by `id`:
+- if request contains `id` -> existing row is updated by `id`
+- if request does not contain `id` -> row is created (or upserted by legacy business key where applicable)
+
+This is important for rename scenarios (for example relation alias rename): send `id` to avoid accidental insert.
 
 ---
 
@@ -235,6 +251,5 @@ At the moment the starter uses `MetaRequest.builder().build()`; if you need prin
 ## Planned
 
 - **Read by id** endpoint (GET) for entity rows
-- **Pagination/sorting** for search
 - **Authorization hooks** for tables/columns/operations
 - **Audit/logging** for entity upsert/delete

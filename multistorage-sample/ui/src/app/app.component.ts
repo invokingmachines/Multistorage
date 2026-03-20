@@ -10,22 +10,14 @@ import { filter } from 'rxjs';
   styleUrl: './app.component.scss'
 })
 export class AppComponent {
-  protected isAdminPage = false;
+  protected isHomePage = false;
 
   constructor(private readonly router: Router) {
-    this.isAdminPage = this.router.url.startsWith('/admin');
+    this.isHomePage = this.router.url === '/';
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe(() => {
-        this.isAdminPage = this.router.url.startsWith('/admin');
+        this.isHomePage = this.router.url === '/';
       });
-  }
-
-  protected goBack(): void {
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-    this.router.navigate(['/browser', 'parent']);
   }
 }

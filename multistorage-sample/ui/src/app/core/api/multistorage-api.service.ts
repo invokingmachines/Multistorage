@@ -62,7 +62,7 @@ export class MultistorageApiService {
     return this.http.get<MetaTableDto[]>('/multistorage/admin/meta/tables');
   }
 
-  upsertMetaTable(row: Pick<MetaTableDto, 'name' | 'alias'>): Observable<MetaTableDto> {
+  upsertMetaTable(row: Pick<MetaTableDto, 'id' | 'name' | 'alias'>): Observable<MetaTableDto> {
     return this.http.post<MetaTableDto>('/multistorage/admin/meta/tables', row);
   }
 

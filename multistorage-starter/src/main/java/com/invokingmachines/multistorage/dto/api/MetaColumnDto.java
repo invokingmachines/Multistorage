@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -13,6 +14,7 @@ import java.time.Instant;
 @AllArgsConstructor
 public class MetaColumnDto {
 
+    private UUID id;
     private String table;
     private String name;
     private String alias;

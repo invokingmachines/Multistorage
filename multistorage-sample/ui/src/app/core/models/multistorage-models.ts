@@ -43,6 +43,7 @@ export interface SearchRequest {
 }
 
 export interface MetaTableDto {
+  id?: string;
   name: string;
   alias: string;
   createdAt?: string;
@@ -50,6 +51,7 @@ export interface MetaTableDto {
 }
 
 export interface MetaColumnDto {
+  id?: string;
   table: string;
   name: string;
   alias: string;
@@ -61,6 +63,7 @@ export interface MetaColumnDto {
 }
 
 export interface MetaRelationDto {
+  id?: string;
   fromTable: string;
   toTable: string;
   fromColumn: string;
