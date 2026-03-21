@@ -67,11 +67,14 @@ You also need: `spring-boot-starter-webmvc`, `spring-boot-starter-data-jpa`, `li
 
 ### 3) Seed metadata
 
-You can seed metadata in two ways:
-- **Admin API** (recommended for manual setup): create `meta_table`, then `meta_column`, then `meta_relation`.
-- **Programmatic DB scan** (example in `multistorage-sample` `AppInitializer`): call `DatabaseMetadataManagerService.scanDatabase()`; the starter’s `MetaSyncService` bean runs `syncFromScan` after each scan and upserts meta rows from JDBC metadata.
+**Production:** treat metadata like any other schema contract — **load `meta_table`, `meta_column`, and `meta_relation` only from versioned migrations** (Liquibase or equivalent), review changes in PRs, and **avoid ad-hoc edits**. In practice: **do not expose** `{api-prefix}/meta/**` in production (remove routes, disable controllers, or gate them behind strict auth and operational process), and **forbid casual manual changes** to meta rows in the database outside controlled releases.
 
-Admin API base path: `{api-prefix}/meta` — tables at `/meta/tables`, columns at `/meta/tables/{tableRef}/columns`, relations listed at `/meta/tables/{tableRef}/relations`, relation upsert at `POST /meta/relations`.
+**Development and demos** can use additional options:
+- **Liquibase** — same approach as production; preferred whenever you want parity with what ships.
+- **Admin API** — handy for local experiments and the sample UI; create `meta_table`, then `meta_column`, then `meta_relation`.
+- **Programmatic DB scan** (example in `multistorage-sample` `AppInitializer`): `DatabaseMetadataManagerService.scanDatabase()`; the starter’s `MetaSyncService` bean runs `syncFromScan` after each scan and upserts meta from JDBC metadata (exploratory / bootstrap only — not a replacement for reviewed migrations in prod).
+
+Admin API base path (when enabled): `{api-prefix}/meta` — tables at `/meta/tables`, columns at `/meta/tables/{tableRef}/columns`, relations listed at `/meta/tables/{tableRef}/relations`, relation upsert at `POST /meta/relations`.
 
 ### 4) Call entity endpoints
 
@@ -217,7 +220,7 @@ multistorage:
 
 - **Primary key**: current JDBC persistor assumes primary key column name is `id` and uses `RETURNING "id"` on insert.
 - **Delete**: current implementation deletes only the root row; it does not automatically cascade deletes to children.
-- **Security**: exposing a dynamic entity API is powerful. In real apps you typically want to add auth/ACL and restrict meta via `MetaCustomizer` / validators.
+- **Security**: exposing a dynamic entity API is powerful. In real apps you typically want auth/ACL, restrict meta via `MetaCustomizer` / validators, and **omit or strictly protect `{api-prefix}/meta/**` in production** (same guidance as in **Seed metadata** under Quickstart).
 - **Aliases in API**: clients receive fields using **aliases**, not raw DB names. For best readability, keep DB naming `snake_case` (e.g. `child_meta`, `created_at`) and use API aliases in `PascalCase` for tables (`ChildMeta`) and `camelCase` for columns (`createdAt`).
   This is fully configurable via metadata: `meta_table.alias`, `meta_column.alias`, `meta_relation.alias`.
 
