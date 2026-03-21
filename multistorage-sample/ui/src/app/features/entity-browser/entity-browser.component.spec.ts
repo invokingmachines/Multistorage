@@ -6,7 +6,7 @@ import { MetaDiscoveryDto, SearchRequest, SearchResult } from '../../core/models
 import { EntityBrowserComponent } from './entity-browser.component';
 
 describe('EntityBrowserComponent', () => {
-  const paramMap$ = new BehaviorSubject(convertToParamMap({ activeEntity: 'parent' }));
+  const paramMap$ = new BehaviorSubject(convertToParamMap({ tenantCode: 'demo', activeEntity: 'parent' }));
 
   const discoveryMock: MetaDiscoveryDto = {
     tables: [
@@ -32,7 +32,7 @@ describe('EntityBrowserComponent', () => {
   };
   const expectedInitialRequest: SearchRequest = { page: 0, size: 20 };
 
-  const apiSpy = jasmine.createSpyObj<MultistorageApiService>('MultistorageApiService', ['getDiscovery', 'search']);
+  const apiSpy = jasmine.createSpyObj<MultistorageApiService>('MultistorageApiService', ['getDiscovery', 'search', 'setTenantCode']);
 
   beforeEach(async () => {
     apiSpy.getDiscovery.and.returnValue(of(discoveryMock));
@@ -53,7 +53,7 @@ describe('EntityBrowserComponent', () => {
     apiSpy.search.calls.reset();
     apiSpy.getDiscovery.and.returnValue(of(discoveryMock));
     apiSpy.search.and.returnValue(of(searchMock));
-    paramMap$.next(convertToParamMap({ activeEntity: 'parent' }));
+    paramMap$.next(convertToParamMap({ tenantCode: 'demo', activeEntity: 'parent' }));
   });
 
   it('should render table for active entity', () => {

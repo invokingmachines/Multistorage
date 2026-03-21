@@ -1,0 +1,140 @@
+.detail-page {
+  margin-top: 8px;
+}
+
+.layout {
+  display: flex;
+  gap: 16px;
+}
+
+.left-pane {
+  width: 30%;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.right-pane {
+  width: 70%;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.header-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+h2,
+h3 {
+  margin: 12px 0;
+}
+
+h2.header-title {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.disabled-link {
+  pointer-events: none;
+  color: #999999;
+}
+
+.entity-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin-bottom: 12px;
+}
+
+.form-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-item label {
+  min-width: 120px;
+  color: #111111;
+}
+
+.form-item span {
+  color: #222222;
+  word-break: break-word;
+}
+
+.form-item input[type='text'],
+.form-item input[type='number'],
+.form-item input[type='datetime-local'] {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #c5c5c5;
+  padding: 6px;
+  background: #ffffff;
+  color: #000000;
+}
+
+button {
+  border: 1px solid #000000;
+  background: #ffffff;
+  color: #000000;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.save-floating-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+  box-sizing: border-box;
+  min-width: 200px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 14px 22px;
+  background: #d8f3dc;
+  border: 1px solid #95d5b2;
+  color: #1b4332;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.save-floating-btn:hover:not(:disabled) {
+  background: #c1eac5;
+  border-color: #74c69d;
+  color: #1b4332;
+}
+
+.save-floating-btn:disabled {
+  background: #d8f3dc;
+  border-color: #95d5b2;
+  color: #1b4332;
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #8a0000;
+}
+
+.success {
+  color: #1b8f3a;
+}

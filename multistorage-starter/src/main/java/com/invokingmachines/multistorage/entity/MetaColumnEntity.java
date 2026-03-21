@@ -43,6 +43,10 @@ public class MetaColumnEntity {
     @Builder.Default
     private Boolean searchable = true;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean editable = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

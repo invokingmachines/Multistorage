@@ -1,9 +1,16 @@
 databaseChangeLog:
   - include:
-      file: classpath:db/changelog/meta/001-meta-table.yaml
+      file: meta/001-meta-table.yaml
+      relativeToChangelogFile: true
   - include:
-      file: classpath:db/changelog/meta/002-meta-column.yaml
+      file: meta/002-meta-column.yaml
+      relativeToChangelogFile: true
   - include:
-      file: classpath:db/changelog/meta/003-meta-relation.yaml
+      file: meta/003-meta-relation.yaml
+      relativeToChangelogFile: true
   - include:
-      file: classpath:db/changelog/meta/004-meta-relation-cascade.yaml
+      file: meta/004-meta-relation-cascade.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: meta/005-meta-column-editable.yaml
+      relativeToChangelogFile: true

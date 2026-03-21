@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/multistorage/admin/meta/tables")
+@RequestMapping("${multistorage.web.api-prefix}/meta/tables")
 @Tag(name = "Meta Tables", description = "Configure meta_table (name, alias). Table identified by name or alias.")
 @RequiredArgsConstructor
 public class MetaTableController {

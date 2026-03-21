@@ -8,7 +8,7 @@
 
       <div class="right-pane">
         <div class="menu-over-table">
-          <app-menu [centered]="true" />
+          <app-menu [tenantCode]="tenantCode" [centered]="true" />
         </div>
 
         <app-entity-multiselect
@@ -36,7 +36,7 @@
 
         <ng-template #editActionTpl let-row>
           <a
-            [routerLink]="['/browser', selectedTable.pathSegment, $any(row)[entityIdKey]]"
+            [routerLink]="['/', tenantCode, 'browser', selectedTable.pathSegment, $any(row)[entityIdKey]]"
             [class.disabled-link]="!$any(row)[entityIdKey]"
             (click)="!$any(row)[entityIdKey] && $event.preventDefault()"
           >

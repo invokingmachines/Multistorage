@@ -6,7 +6,7 @@ import com.invokingmachines.multistorage.dto.meta.TableMeta;
 import com.invokingmachines.multistorage.pipeline.CascadeType;
 import com.invokingmachines.multistorage.pipeline.OperationType;
 import com.invokingmachines.multistorage.pipeline.meta.QueryMetaFilter;
-import com.invokingmachines.multistorage.query.service.QueryCompiler;
+import com.invokingmachines.multistorage.data.service.QueryCompiler;
 
 import java.util.List;
 import java.util.Map;

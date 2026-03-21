@@ -36,5 +36,6 @@ public class MetaDiscoveryDto {
         private String name;
         private String dataType;
         private Boolean searchable;
+        private Boolean editable;
     }
 }

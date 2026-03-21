@@ -1,0 +1,69 @@
+<section class="detail-page">
+  @if (selectedTable) {
+    <div class="layout">
+      <div class="left-pane">
+        <app-query-body-preview [path]="debugPath" [method]="debugMethod" [body]="requestBody" [title]="'Request body'" />
+        <app-query-body-preview [path]="''" [body]="responseBody" [title]="'Response sample'" />
+      </div>
+
+      <div class="right-pane">
+        <div class="header-row">
+          <h2 class="header-title">{{ selectedTable.alias || selectedTable.name }} / {{ formModel[idField] }}</h2>
+        </div>
+
+        <h3>Entity form</h3>
+        <div class="entity-form">
+          @for (field of formFields; track field.key) {
+            <div class="form-item">
+              <label>{{ field.label }}</label>
+              @if (field.editable === false) {
+                <span>{{ fieldValue(field) }}</span>
+              } @else if (field.type === 'boolean') {
+                <input
+                  type="checkbox"
+                  [checked]="!!fieldValue(field)"
+                  (change)="onFieldChange(field, $any($event.target).checked)"
+                />
+              } @else if (field.type === 'datetime') {
+                <input
+                  type="datetime-local"
+                  [value]="asInputDate(fieldValue(field))"
+                  (change)="onFieldChange(field, $any($event.target).value)"
+                />
+              } @else if (field.type === 'number') {
+                <input type="number" [value]="fieldValue(field) ?? ''" (input)="onFieldChange(field, $any($event.target).value)" />
+              } @else {
+                <input type="text" [value]="fieldValue(field) ?? ''" (input)="onFieldChange(field, $any($event.target).value)" />
+              }
+            </div>
+          }
+        </div>
+
+        @for (section of relationSections; track section.title + '-' + section.entityPath) {
+          <h3>{{ section.title }}</h3>
+          <ng-template #childOpenTpl let-row>
+            <a
+              [routerLink]="['/', tenantCode, 'browser', section.entityPath, $any(row)[section.idKey]]"
+              [class.disabled-link]="!$any(row)[section.idKey]"
+              (click)="!$any(row)[section.idKey] && $event.preventDefault()"
+            >
+              Open
+            </a>
+          </ng-template>
+          <app-generic-table
+            [columns]="section.columns"
+            [rows]="section.rows"
+            [extraColumns]="[{ key: 'open', label: '', template: childOpenTpl }]"
+            (cellEdit)="onRelationCellEdit(section, $event)"
+          />
+        }
+      </div>
+    </div>
+
+    @if (formDirty) {
+      <button type="button" class="save-floating-btn" (click)="save()" [disabled]="saving">
+        {{ saving ? 'Saving...' : 'Save' }}
+      </button>
+    }
+  }
+</section>

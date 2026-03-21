@@ -51,8 +51,38 @@ button {
   cursor: pointer;
 }
 
-button.save-dirty {
-  background: #e6ffe6;
-  border-color: #1b8f3a;
-  color: #1b8f3a;
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.save-floating-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+  box-sizing: border-box;
+  min-width: 200px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 14px 22px;
+  background: #d8f3dc;
+  border: 1px solid #95d5b2;
+  color: #1b4332;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.save-floating-btn:hover:not(:disabled) {
+  background: #c1eac5;
+  border-color: #74c69d;
+  color: #1b4332;
+}
+
+.save-floating-btn:disabled {
+  background: #d8f3dc;
+  border-color: #95d5b2;
+  color: #1b4332;
+  opacity: 0.72;
+  cursor: not-allowed;
 }

@@ -25,7 +25,7 @@ export class EntityMultiselectComponent implements OnChanges {
   constructor(private readonly api: MultistorageApiService) {
     this.queryInput$
       .pipe(
-        debounceTime(2000),
+        debounceTime(250),
         distinctUntilChanged(),
         switchMap((term) => this.search(term))
       )

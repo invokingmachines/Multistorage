@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-add-child-type
+      author: system
+      changes:
+        - addColumn:
+            tableName: child
+            columns:
+              - column:
+                  name: child_type
+                  type: VARCHAR(32)
+                  defaultValue: type_1
+                  constraints:
+                    nullable: false

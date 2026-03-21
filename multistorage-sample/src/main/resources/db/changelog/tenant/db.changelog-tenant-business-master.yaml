@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - include:
+      file: ../v1/001-create-parent-table.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: ../v1/002-create-child-table.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: ../v1/003-seed-parent-and-child.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: ../v1/004-add-child-type.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: ../v1/005-expand-tenant-seed.yaml
+      relativeToChangelogFile: true

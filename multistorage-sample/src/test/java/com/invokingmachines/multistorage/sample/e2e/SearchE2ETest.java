@@ -219,18 +219,18 @@ public class SearchE2ETest extends AbstractE2ETest {
 
     private void seedChildren() {
         Instant now = Instant.parse("2024-01-15T10:00:00Z");
-        jdbc.update("INSERT INTO child(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
+        jdbc.update("INSERT INTO " + tenantTable("child") + "(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
                 1L, "Child 1", Timestamp.from(now), Timestamp.from(now));
-        jdbc.update("INSERT INTO child(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
+        jdbc.update("INSERT INTO " + tenantTable("child") + "(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
                 1L, "Child 2", Timestamp.from(now.plusSeconds(60)), Timestamp.from(now.plusSeconds(60)));
-        jdbc.update("INSERT INTO child(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
+        jdbc.update("INSERT INTO " + tenantTable("child") + "(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
                 2L, "Child 3", Timestamp.from(now.plusSeconds(120)), Timestamp.from(now.plusSeconds(120)));
     }
 
     private void seedChildMeta() {
-        jdbc.update("INSERT INTO child_meta(child_id, meta_value) VALUES (?,?)", 1L, "m1");
-        jdbc.update("INSERT INTO child_meta(child_id, meta_value) VALUES (?,?)", 1L, "m2");
-        jdbc.update("INSERT INTO child_meta(child_id, meta_value) VALUES (?,?)", 2L, "m3");
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_id, meta_value) VALUES (?,?)", 1L, "m1");
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_id, meta_value) VALUES (?,?)", 1L, "m2");
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_id, meta_value) VALUES (?,?)", 2L, "m3");
     }
 }
 

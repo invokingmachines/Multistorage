@@ -8,6 +8,7 @@ import com.invokingmachines.multistorage.entity.MetaRelationEntity;
 import com.invokingmachines.multistorage.entity.MetaTableEntity;
 import com.invokingmachines.multistorage.repository.MetaColumnRepository;
 import com.invokingmachines.multistorage.repository.MetaRelationRepository;
+import com.invokingmachines.multistorage.config.MultistorageScanProperties;
 import com.invokingmachines.multistorage.repository.MetaTableRepository;
 import com.invokingmachines.multistorage.util.NamingUtils;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class MetaSyncService {
     private final MetaTableRepository metaTableRepository;
     private final MetaColumnRepository metaColumnRepository;
     private final MetaRelationRepository metaRelationRepository;
+    private final MultistorageScanProperties scanProperties;
 
     @Transactional
     public void syncFromScan(Map<String, Table> scanned) {
@@ -56,6 +58,7 @@ public class MetaSyncService {
                                 .dataType(c.getType())
                                 .readable(true)
                                 .searchable(true)
+                                .editable(scanProperties.defaultEditableForNewColumn(c.getName(), c.getName()))
                                 .build()));
             }
         }

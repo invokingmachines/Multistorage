@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: multistorage-sample
+  datasource:
+    url: jdbc:postgresql://localhost:5432/multistorage
+    username: multistorage
+    password: multistorage
+    driver-class-name: org.postgresql.Driver
+  liquibase:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+multistorage:
+  web:
+    api-prefix: /api/{tenantId}
+  scan:
+    non-editable-column-aliases:
+      - id
+      - createdAt
+      - updatedAt
+
+logging:
+  level:
+    liquibase: INFO
+    liquibase.executor: INFO
+    org.springframework.boot.autoconfigure.liquibase: INFO
+    org.springframework.boot: INFO

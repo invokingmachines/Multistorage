@@ -33,7 +33,7 @@ public class DeleteE2ETest extends AbstractE2ETest {
         var r = deleteEntity(E2ETestConfig.T_CHILD, 1);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(r.getBody()).containsEntry("deleted", true);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM child WHERE id = 1", Integer.class)).isEqualTo(0);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("child") + " WHERE id = 1", Integer.class)).isEqualTo(0);
     }
 
     @Test
@@ -48,16 +48,16 @@ public class DeleteE2ETest extends AbstractE2ETest {
         seedOneChild();
         var r = deleteEntity(E2ETestConfig.T_CHILD, "1");
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM child", Integer.class)).isEqualTo(0);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("child"), Integer.class)).isEqualTo(0);
     }
 
     @Test
     void delete_childMetaRow_works() {
         seedOneChild();
-        jdbc.update("INSERT INTO child_meta(child_id, meta_value) VALUES (?,?)", 1L, "m1");
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_id, meta_value) VALUES (?,?)", 1L, "m1");
         var r = deleteEntity(E2ETestConfig.T_CHILD_META, 1);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM child_meta WHERE id = 1", Integer.class)).isEqualTo(0);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("child_meta") + " WHERE id = 1", Integer.class)).isEqualTo(0);
     }
 
     @Test
@@ -68,7 +68,7 @@ public class DeleteE2ETest extends AbstractE2ETest {
 
     private void seedOneChild() {
         Instant now = Instant.parse("2024-01-15T10:00:00Z");
-        jdbc.update("INSERT INTO child(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
+        jdbc.update("INSERT INTO " + tenantTable("child") + "(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
                 1L, "Child 1", Timestamp.from(now), Timestamp.from(now));
     }
 }

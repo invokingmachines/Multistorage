@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: db.changelog-tenant-business-master.yaml
+      relativeToChangelogFile: true

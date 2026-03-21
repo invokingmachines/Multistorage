@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-meta-column-editable
+      author: multistorage
+      changes:
+        - addColumn:
+            tableName: meta_column
+            columns:
+              - column:
+                  name: editable
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+        - sql:
+            dbms: postgresql
+            splitStatements: false
+            sql: |
+              UPDATE meta_column SET editable = false
+              WHERE lower(name) IN ('id', 'created_at', 'updated_at')
+                 OR lower(alias) IN ('id', 'created_at', 'updated_at', 'createdat', 'updatedat');

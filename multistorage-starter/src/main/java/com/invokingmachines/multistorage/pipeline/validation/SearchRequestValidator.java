@@ -10,7 +10,7 @@ import com.invokingmachines.multistorage.dto.query.Node;
 import com.invokingmachines.multistorage.dto.query.Query;
 import com.invokingmachines.multistorage.pipeline.OperationType;
 import com.invokingmachines.multistorage.pipeline.meta.QueryMetaFilter;
-import com.invokingmachines.multistorage.query.service.QueryCompiler;
+import com.invokingmachines.multistorage.data.service.QueryCompiler;
 
 import java.util.List;
 

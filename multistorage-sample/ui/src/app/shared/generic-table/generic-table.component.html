@@ -75,7 +75,7 @@
           <tr>
             @for (column of columns; track column.key) {
               <td>
-                @if (!column.editable) {
+                @if (column.editable === false) {
                   {{ cellValue(row, column) }}
                 } @else if (isBooleanColumn(column)) {
                   <input

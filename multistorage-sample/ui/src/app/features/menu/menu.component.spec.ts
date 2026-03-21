@@ -38,6 +38,7 @@ describe('MenuComponent', () => {
 
   it('should render buttons from metadata', () => {
     const fixture = TestBed.createComponent(MenuComponent);
+    fixture.componentRef.setInput('tenantCode', 'demo');
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     const buttons = Array.from(compiled.querySelectorAll('.table-button')) as HTMLAnchorElement[];

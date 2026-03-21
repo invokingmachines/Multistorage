@@ -8,10 +8,11 @@ Spring Boot starter that turns any application with a PostgreSQL database into a
 
 ## Current features
 
-- **Dynamic entity endpoints** — For each business table described by metadata:
-  - `POST /multistorage/api/{entity}/search`
-  - `POST /multistorage/api/{entity}` (upsert)
-  - `DELETE /multistorage/api/{entity}/{id}`
+- **Configurable HTTP paths (no multitenancy in the starter)** — `multistorage.web.api-tenant-prefix` (e.g. `/api`) for `{prefix}/tenants` and `{prefix}/{tenantId}/admin/meta/...`. `multistorage.web.api-prefix` is the full pattern for discovery + entity CRUD and **must** contain a `{tenantId}` path variable (default `/multistorage/api/{tenantId}`; sample uses `/api/{tenantId}/data`). The `{tenantId}` value is application-defined (the sample maps it from tenant `code`).
+- **Dynamic entity endpoints** — For each business table described by metadata (paths follow `api-prefix` + `/{entity}/...`):
+  - `POST {api-prefix}/{entity}/search`
+  - `POST {api-prefix}/{entity}` (upsert)
+  - `DELETE {api-prefix}/{entity}/{id}`
 - **Request pipeline** — all operations go through:
   - receive request → validate request → preProcess handlers → operation → mapping to response → postProcess handlers
 - **Validation** — one validator per operation type:
@@ -28,14 +29,14 @@ Spring Boot starter that turns any application with a PostgreSQL database into a
   - one-to-many → array
   - many-to-one → single object
   - Search and upsert responses are returned in a nested structure.
-- **Discovery** — `GET /multistorage/api/search/discovery?table=...` returns metadata for the client (tables, columns, relations).
+- **Discovery** — `GET {prefix}/{tenantId}/search/discovery?table=...` returns metadata for the client (tables, columns, relations).
   - Discovery excludes columns with `readable = false`
   - Discovery returns `searchable` flag for each visible column
-- **Metadata Admin API** — CRUD for metadata: `/multistorage/admin/meta/...` (tables, columns, relations). Liquibase creates meta schema on startup.
+- **Metadata Admin API** — CRUD for metadata: `{prefix}/{tenantId}/admin/meta/...` (tables, columns, relations). Meta tables live in the tenant schema (sample: per-tenant PostgreSQL schema + `search_path`).
   - Admin DTOs now include `id`
   - Upsert semantics: if `id` is provided -> update, otherwise -> create
 - **Metadata customization** — `MetaCustomizer` bean can modify `QueryMeta` before compilation.
-- **OpenAPI** — endpoints under `/multistorage/api/**` are included in Swagger; operations are generated per entity and include request/response examples.
+- **OpenAPI** — paths follow the same `{prefix}/{tenantId}/...` pattern; operations are generated per entity and include request/response examples.
 
 **Stack:** Spring Boot 4, WebMvc, Data JPA, Liquibase, PostgreSQL, springdoc-openapi.
 
@@ -66,14 +67,14 @@ You can seed metadata in two ways:
 - **Admin API** (recommended for manual setup): create `meta_table`, then `meta_column`, then `meta_relation`.
 - **Programmatic DB scan** (example in `multistorage-sample`): call `DatabaseMetadataManagerService.scanDatabase()`; if `MetaSyncService` is present it will sync scanned tables/columns/relations into meta tables.
 
-Admin API base path: `/multistorage/admin/meta` (tables / columns / relations).
+Admin API base path: `{prefix}/{tenantId}/admin/meta` (tables / columns / relations).
 
 ### 4) Call entity endpoints
 
 Search:
 
 ```bash
-curl -X POST "http://localhost:8080/multistorage/api/<entity>/search" \
+curl -X POST "http://localhost:8080/api/demo/data/<entity>/search" \
   -H "Content-Type: application/json" \
   -d '{"select":[["*"]],"where":{"logician":"AND","criteria":[]}}'
 ```
@@ -81,7 +82,7 @@ curl -X POST "http://localhost:8080/multistorage/api/<entity>/search" \
 Upsert:
 
 ```bash
-curl -X POST "http://localhost:8080/multistorage/api/<entity>" \
+curl -X POST "http://localhost:8080/api/demo/<entity>" \
   -H "Content-Type: application/json" \
   -d '{"name":"example"}'
 ```
@@ -89,7 +90,7 @@ curl -X POST "http://localhost:8080/multistorage/api/<entity>" \
 Delete:
 
 ```bash
-curl -X DELETE "http://localhost:8080/multistorage/api/<entity>/1"
+curl -X DELETE "http://localhost:8080/api/demo/data/<entity>/1"
 ```
 
 ---
@@ -98,7 +99,7 @@ curl -X DELETE "http://localhost:8080/multistorage/api/<entity>/1"
 
 ### Search
 
-`POST /multistorage/api/{entity}/search`
+`POST {api-prefix}/{entity}/search`
 
 Body (`Query`):
 - **select** — list of paths (`["*"]`, `["relation", "*"]`, `["a","b","field"]`)
@@ -124,7 +125,7 @@ Response: array of entities with nested relations (tree).
 
 ### Upsert (create/update)
 
-`POST /multistorage/api/{entity}`
+`POST {api-prefix}/{entity}`
 
 Body: JSON object (entity). Keys can be column **name** or **alias**. Relation keys are relation aliases from `meta_relation.alias`.
 
@@ -134,7 +135,7 @@ Response: saved entity in nested form (tree). Internally the starter persists an
 
 ### Delete
 
-`DELETE /multistorage/api/{entity}/{id}`
+`DELETE {api-prefix}/{entity}/{id}`
 
 Response:
 

@@ -20,4 +20,5 @@ public class MetaColumnRequest {
     private String dataType;
     private Boolean readable;
     private Boolean searchable;
+    private Boolean editable;
 }

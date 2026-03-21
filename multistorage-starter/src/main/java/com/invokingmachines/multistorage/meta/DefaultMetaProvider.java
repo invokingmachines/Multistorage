@@ -94,6 +94,7 @@ public class DefaultMetaProvider implements MetaProvider {
                 .dataType(c.getDataType())
                 .readable(c.getReadable())
                 .searchable(c.getSearchable())
+                .editable(c.getEditable())
                 .build();
     }
 

@@ -15,6 +15,7 @@ export interface ColumnDiscoveryDto {
   name: string;
   dataType: string;
   searchable?: boolean;
+  editable?: boolean;
 }
 
 export interface SearchResult {
@@ -59,8 +60,14 @@ export interface MetaColumnDto {
   dataType: string;
   readable: boolean;
   searchable: boolean;
+  editable?: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface TenantResponse {
+  id: number;
+  code: string;
 }
 
 export interface MetaRelationDto {

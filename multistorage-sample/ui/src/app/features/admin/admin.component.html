@@ -1,43 +1,16 @@
 <section class="admin-page">
   <h2>MetaTable</h2>
-  <app-generic-table
-    [columns]="tableColumns"
-    [rows]="$any(metaTables)"
-    (cellEdit)="onGenericCellEdit($event)"
-    [extraColumns]="[{ key: 'actions', label: '', template: saveTableTpl }]"
-  />
+  <app-generic-table [columns]="tableColumns" [rows]="$any(metaTables)" (cellEdit)="onGenericCellEdit($event)" />
 
   <h2>MetaColumn</h2>
-  <app-generic-table
-    [columns]="columnColumns"
-    [rows]="$any(metaColumns)"
-    (cellEdit)="onGenericCellEdit($event)"
-    [extraColumns]="[{ key: 'actions', label: '', template: saveColumnTpl }]"
-  />
+  <app-generic-table [columns]="columnColumns" [rows]="$any(metaColumns)" (cellEdit)="onGenericCellEdit($event)" />
 
   <h2>MetaRelation</h2>
-  <app-generic-table
-    [columns]="relationColumns"
-    [rows]="$any(metaRelations)"
-    (cellEdit)="onGenericCellEdit($event)"
-    [extraColumns]="[{ key: 'actions', label: '', template: saveRelationTpl }]"
-  />
+  <app-generic-table [columns]="relationColumns" [rows]="$any(metaRelations)" (cellEdit)="onGenericCellEdit($event)" />
 
-  <ng-template #saveTableTpl let-row>
-    <button type="button" [class.save-dirty]="isMetaTableDirty($any(row))" (click)="saveMetaTable($any(row))">Save</button>
-  </ng-template>
-
-  <ng-template #saveColumnTpl let-row>
-    <button type="button" [class.save-dirty]="isMetaColumnDirty($any(row))" (click)="saveMetaColumn($any(row))">Save</button>
-  </ng-template>
-
-  <ng-template #saveRelationTpl let-row>
-    <button
-      type="button"
-      [class.save-dirty]="isMetaRelationDirty($any(row))"
-      (click)="saveMetaRelation($any(row))"
-    >
-      Save
+  @if (adminDirty) {
+    <button type="button" class="save-floating-btn" (click)="saveAllDirty()" [disabled]="saving">
+      {{ saving ? 'Saving...' : 'Save' }}
     </button>
-  </ng-template>
+  }
 </section>

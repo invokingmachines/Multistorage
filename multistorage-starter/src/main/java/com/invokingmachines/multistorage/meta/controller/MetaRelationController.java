@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/multistorage/admin/meta")
+@RequestMapping("${multistorage.web.api-prefix}/meta")
 @Tag(name = "Meta Relations", description = "Configure meta_relation. Tables identified by name or alias.")
 @RequiredArgsConstructor
 public class MetaRelationController {

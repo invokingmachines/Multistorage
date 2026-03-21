@@ -8,7 +8,7 @@
 
 <section class="tables-panel" [class.tables-panel--center]="centered">
   @for (table of tables; track table.pathSegment) {
-    <a class="table-button" [routerLink]="['/browser', table.pathSegment]">
+    <a class="table-button" [routerLink]="['/', tenantCode, 'browser', table.pathSegment]">
       {{ table.alias || table.name }}
     </a>
   }

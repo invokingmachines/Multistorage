@@ -10,15 +10,15 @@ export const routes: Routes = [
     component: HomeComponent
   },
   {
-    path: 'admin',
+    path: ':tenantCode/admin',
     component: AdminComponent
   },
   {
-    path: 'browser/:activeEntity',
+    path: ':tenantCode/browser/:activeEntity',
     component: EntityBrowserComponent
   },
   {
-    path: 'browser/:activeEntity/:id',
+    path: ':tenantCode/browser/:activeEntity/:id',
     component: EntityDetailComponent
   },
   { path: '**', redirectTo: '' }

@@ -31,13 +31,19 @@ import java.util.Map;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class AbstractE2ETest {
 
+    public static final String E2E_TENANT_CODE = "demo";
+    public static final String E2E_TENANT_SCHEMA = "_1_sample";
+    public static final String API_PREFIX = "/api";
+
     static void registerDatasourceProperties(DynamicPropertyRegistry r, PostgreSQLContainer<?> postgres) {
         r.add("spring.datasource.url", postgres::getJdbcUrl);
         r.add("spring.datasource.username", postgres::getUsername);
         r.add("spring.datasource.password", postgres::getPassword);
         r.add("spring.jpa.hibernate.ddl-auto", () -> "none");
         r.add("spring.jpa.open-in-view", () -> "false");
-        r.add("spring.liquibase.enabled", () -> "true");
+        r.add("spring.liquibase.enabled", () -> "false");
+        r.add("multistorage.web.api-tenant-prefix", () -> "/api");
+        r.add("multistorage.web.api-prefix", () -> "/api/{tenantId}");
     }
 
     @Autowired
@@ -46,25 +52,47 @@ public abstract class AbstractE2ETest {
     @Autowired
     protected JdbcTemplate jdbc;
 
+    protected static String quotedTenantSchema() {
+        return "\"" + E2E_TENANT_SCHEMA.replace("\"", "\"\"") + "\"";
+    }
+
+    protected static String tenantTable(String tableName) {
+        return quotedTenantSchema() + "." + tableName;
+    }
+
     @BeforeEach
     void clearBusinessTables() {
-        jdbc.execute("TRUNCATE TABLE child_meta RESTART IDENTITY CASCADE");
-        jdbc.execute("TRUNCATE TABLE child RESTART IDENTITY CASCADE");
-        jdbc.execute("TRUNCATE TABLE parent RESTART IDENTITY CASCADE");
+        String qs = quotedTenantSchema();
+        jdbc.execute("TRUNCATE TABLE "
+                + qs + ".child_meta, "
+                + qs + ".child, "
+                + qs + ".parent "
+                + "RESTART IDENTITY CASCADE");
 
-        // seed minimal baseline per test
-        jdbc.update("INSERT INTO parent(name) VALUES (?)", "Parent 1");
-        jdbc.update("INSERT INTO parent(name) VALUES (?)", "Parent 2");
+        jdbc.update("INSERT INTO " + qs + ".parent(name) VALUES (?)", "Parent 1");
+        jdbc.update("INSERT INTO " + qs + ".parent(name) VALUES (?)", "Parent 2");
     }
 
     @SuppressWarnings("unchecked")
     protected ResponseEntity<Object> postSearch(String entity, Object body) {
         return rest.exchange(
-                "/multistorage/api/" + entity + "/search",
+                tenantEntityPath(entity, "search"),
                 HttpMethod.POST,
                 new HttpEntity<>(body, jsonHeaders()),
                 new ParameterizedTypeReference<Object>() {}
         );
+    }
+
+    protected String tenantEntityPath(String entity, String... suffix) {
+        StringBuilder b = new StringBuilder(API_PREFIX)
+                .append('/')
+                .append(E2E_TENANT_CODE)
+                .append("/data/")
+                .append(entity);
+        for (String s : suffix) {
+            b.append('/').append(s);
+        }
+        return b.toString();
     }
 
     @SuppressWarnings("unchecked")
@@ -83,7 +111,7 @@ public abstract class AbstractE2ETest {
 
     protected ResponseEntity<Map<String, Object>> postUpsert(String entity, Object body) {
         return rest.exchange(
-                "/multistorage/api/" + entity,
+                tenantEntityPath(entity),
                 HttpMethod.POST,
                 new HttpEntity<>(body, jsonHeaders()),
                 new ParameterizedTypeReference<>() {}
@@ -92,7 +120,7 @@ public abstract class AbstractE2ETest {
 
     protected ResponseEntity<Map<String, Object>> deleteEntity(String entity, Object id) {
         return rest.exchange(
-                "/multistorage/api/" + entity + "/" + id,
+                tenantEntityPath(entity, String.valueOf(id)),
                 HttpMethod.DELETE,
                 new HttpEntity<>(jsonHeaders()),
                 new ParameterizedTypeReference<>() {}
@@ -101,7 +129,7 @@ public abstract class AbstractE2ETest {
 
     protected ResponseEntity<String> postAdmin(String path, Object body) {
         return rest.exchange(
-                "/multistorage/admin/meta" + path,
+                API_PREFIX + "/" + E2E_TENANT_CODE + "/meta" + path,
                 HttpMethod.POST,
                 new HttpEntity<>(body, jsonHeaders()),
                 String.class
@@ -115,4 +143,3 @@ public abstract class AbstractE2ETest {
         return h;
     }
 }
-

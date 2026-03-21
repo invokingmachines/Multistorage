@@ -1,5 +1,6 @@
 package com.invokingmachines.multistorage.autoconfigure;
 
+import com.invokingmachines.multistorage.config.MultistorageWebProperties;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import org.springdoc.core.models.GroupedOpenApi;
@@ -21,22 +22,31 @@ public class OpenApiConfiguration {
     }
 
     @Bean
-    public GroupedOpenApi adminApi() {
+    public GroupedOpenApi adminApi(MultistorageWebProperties webProperties) {
+        String p = normalizePrefix(webProperties.getApiTenantPrefix());
         return GroupedOpenApi.builder()
                 .group("admin")
                 .displayName("Admin: Meta configuration")
-                .pathsToMatch("/multistorage/admin/**")
-                .pathsToExclude("/multistorage/api/**")
+                .pathsToMatch(p + "/*/admin/**")
+                .pathsToExclude(p + "/**/search/**")
                 .build();
     }
 
     @Bean
-    public GroupedOpenApi userApi() {
+    public GroupedOpenApi userApi(MultistorageWebProperties webProperties) {
+        String p = normalizePrefix(webProperties.getApiTenantPrefix());
         return GroupedOpenApi.builder()
                 .group("user")
                 .displayName("User: Discovery & Search")
-                .pathsToMatch("/multistorage/api/**")
-                .pathsToExclude("/multistorage/admin/**")
+                .pathsToMatch(p + "/**")
+                .pathsToExclude(p + "/*/admin/**")
                 .build();
+    }
+
+    private static String normalizePrefix(String prefix) {
+        if (prefix == null || prefix.isEmpty()) {
+            return "";
+        }
+        return prefix.endsWith("/") ? prefix.substring(0, prefix.length() - 1) : prefix;
     }
 }

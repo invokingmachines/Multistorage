@@ -1,3 +1,16 @@
 <section class="home-page">
-  <app-menu [centered]="true" />
+  @if (loading) {
+    <p>Loading tenants...</p>
+  }
+  @if (errorMessage) {
+    <p class="error">{{ errorMessage }}</p>
+  }
+  @if (!loading && !errorMessage && tenants.length) {
+    <h1 class="home-heading">Available tenants:</h1>
+  }
+  <div class="tenant-panel">
+    @for (t of tenants; track t.code) {
+      <a class="tenant-button" [routerLink]="['/', t.code, 'browser', 'parent']">{{ t.code }}</a>
+    }
+  </div>
 </section>

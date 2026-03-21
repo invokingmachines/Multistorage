@@ -7,7 +7,7 @@ import com.invokingmachines.multistorage.dto.query.Criteria;
 import com.invokingmachines.multistorage.dto.query.Criterion;
 import com.invokingmachines.multistorage.dto.query.Node;
 import com.invokingmachines.multistorage.dto.query.Query;
-import com.invokingmachines.multistorage.query.service.QueryCompiler;
+import com.invokingmachines.multistorage.data.service.QueryCompiler;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;

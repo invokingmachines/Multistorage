@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/multistorage/admin/meta/tables/{tableRef}/columns")
+@RequestMapping("${multistorage.web.api-prefix}/meta/tables/{tableRef}/columns")
 @Tag(name = "Meta Columns", description = "Configure meta_column. Table and column identified by name or alias.")
 @RequiredArgsConstructor
 public class MetaColumnController {

@@ -1,0 +1,10 @@
+<div class="popup-stack">
+  @for (item of notifications$ | async; track item.id) {
+    <div class="popup-item" (click)="dismiss(item.id)">
+      <div class="popup-channel" [class.info]="item.channel === 'info'" [class.warning]="item.channel === 'warning'" [class.error]="item.channel === 'error'">
+        {{ item.channel.toUpperCase() }}
+      </div>
+      <div class="popup-message">{{ item.message }}</div>
+    </div>
+  }
+</div>

@@ -21,6 +21,7 @@ public class MetaColumnDto {
     private String dataType;
     private Boolean readable;
     private Boolean searchable;
+    private Boolean editable;
     private Instant createdAt;
     private Instant updatedAt;
 }

@@ -1,7 +1,11 @@
 <main class="page">
   <div class="top-bar">
     <h1>Multistorage Sample UI</h1>
-    <a class="top-button" [routerLink]="topButtonLink">{{ topButtonLabel }}</a>
+    <div class="top-bar-actions">
+      @for (link of topLinks; track link.label) {
+        <a class="top-button" [routerLink]="link.link">{{ link.label }}</a>
+      }
+    </div>
   </div>
   <router-outlet />
   <app-popup-notification />

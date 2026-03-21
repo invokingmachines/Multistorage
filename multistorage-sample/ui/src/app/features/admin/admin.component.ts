@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
-import { finalize, forkJoin, of, switchMap } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
+import { Observable, finalize, forkJoin, of, switchMap } from 'rxjs';
 import { MultistorageApiService } from '../../core/api/multistorage-api.service';
 import { MetaColumnDto, MetaRelationDto, MetaTableDto } from '../../core/models/multistorage-models';
 import { PopupNotificationService } from '../../core/ui/popup-notification.service';
@@ -21,6 +22,7 @@ type AdminColumn = GenericTableColumn & { type: ColumnType; editable: boolean };
 })
 export class AdminComponent implements OnInit {
   protected loading = false;
+  protected saving = false;
 
   protected metaTables: MetaTableDto[] = [];
   protected metaColumns: MetaColumnDto[] = [];
@@ -43,6 +45,7 @@ export class AdminComponent implements OnInit {
     { key: 'dataType', label: 'dataType', type: 'text', editable: true },
     { key: 'readable', label: 'readable', type: 'boolean', editable: true },
     { key: 'searchable', label: 'searchable', type: 'boolean', editable: true },
+    { key: 'editable', label: 'editable', type: 'boolean', editable: true },
     { key: 'createdAt', label: 'createdAt', type: 'datetime', editable: false },
     { key: 'updatedAt', label: 'updatedAt', type: 'datetime', editable: false }
   ];
@@ -61,12 +64,27 @@ export class AdminComponent implements OnInit {
   ];
 
   constructor(
+    private readonly route: ActivatedRoute,
     private readonly api: MultistorageApiService,
     private readonly notifications: PopupNotificationService
   ) {}
 
+  protected get adminDirty(): boolean {
+    return (
+      this.metaTables.some((row) => this.isMetaTableDirty(row)) ||
+      this.metaColumns.some((row) => this.isMetaColumnDirty(row)) ||
+      this.metaRelations.some((row) => this.isMetaRelationDirty(row))
+    );
+  }
+
   ngOnInit(): void {
-    this.reload();
+    this.route.paramMap.subscribe((params) => {
+      const code = params.get('tenantCode') ?? '';
+      this.api.setTenantCode(code);
+      if (code.length > 0) {
+        this.reload();
+      }
+    });
   }
 
   protected reload(): void {
@@ -111,40 +129,32 @@ export class AdminComponent implements OnInit {
     this.setCell(event.row, event.column, event.value);
   }
 
-  protected saveMetaTable(row: MetaTableDto): void {
-    this.api.upsertMetaTable({ id: row.id, name: String(row.name ?? ''), alias: String(row.alias ?? '') }).subscribe({
-      next: () => {
-        this.notifications.show('Meta table saved.', 3500, 'info');
-        this.reload();
-      },
-      error: () => this.notifications.show('Failed to save meta table.', 3500, 'error')
-    });
-  }
+  protected saveAllDirty(): void {
+    const dirtyTables = this.metaTables.filter((row) => this.isMetaTableDirty(row));
+    const dirtyColumns = this.metaColumns.filter((row) => this.isMetaColumnDirty(row));
+    const dirtyRelations = this.metaRelations.filter((row) => this.isMetaRelationDirty(row));
+    if (dirtyTables.length === 0 && dirtyColumns.length === 0 && dirtyRelations.length === 0) {
+      return;
+    }
 
-  protected saveMetaColumn(row: MetaColumnDto): void {
-    const tableRef = String(row.table ?? '');
-    this.api
-      .upsertMetaColumn(tableRef, {
+    const tableReqs: Observable<unknown>[] = dirtyTables.map((row) =>
+      this.api.upsertMetaTable({ id: row.id, name: String(row.name ?? ''), alias: String(row.alias ?? '') })
+    );
+    const columnReqs: Observable<unknown>[] = dirtyColumns.map((row) => {
+      const tableRef = String(row.table ?? '');
+      return this.api.upsertMetaColumn(tableRef, {
         id: row.id,
         table: String(row.table ?? ''),
         name: String(row.name ?? ''),
         alias: String(row.alias ?? ''),
         dataType: String(row.dataType ?? ''),
         readable: Boolean(row.readable),
-        searchable: Boolean(row.searchable)
-      })
-      .subscribe({
-        next: () => {
-          this.notifications.show('Meta column saved.', 3500, 'info');
-          this.reload();
-        },
-        error: () => this.notifications.show('Failed to save meta column.', 3500, 'error')
+        searchable: Boolean(row.searchable),
+        editable: row.editable !== false
       });
-  }
-
-  protected saveMetaRelation(row: MetaRelationDto): void {
-    this.api
-      .upsertMetaRelation({
+    });
+    const relationReqs: Observable<unknown>[] = dirtyRelations.map((row) =>
+      this.api.upsertMetaRelation({
         id: row.id,
         fromTable: String(row.fromTable ?? ''),
         toTable: String(row.toTable ?? ''),
@@ -155,12 +165,21 @@ export class AdminComponent implements OnInit {
         cascadeType: row.cascadeType ? String(row.cascadeType) : null,
         active: Boolean(row.active)
       } as Omit<MetaRelationDto, 'createdAt' | 'updatedAt'>)
+    );
+
+    this.saving = true;
+    forkJoin({
+      tables: tableReqs.length > 0 ? forkJoin(tableReqs) : of(null),
+      columns: columnReqs.length > 0 ? forkJoin(columnReqs) : of(null),
+      relations: relationReqs.length > 0 ? forkJoin(relationReqs) : of(null)
+    })
+      .pipe(finalize(() => (this.saving = false)))
       .subscribe({
         next: () => {
-          this.notifications.show('Meta relation saved.', 3500, 'info');
+          this.notifications.show('Admin meta saved.', 3500, 'info');
           this.reload();
         },
-        error: () => this.notifications.show('Failed to save meta relation.', 3500, 'error')
+        error: () => this.notifications.show('Failed to save admin meta.', 3500, 'error')
       });
   }
 

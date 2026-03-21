@@ -38,11 +38,11 @@ public class UpsertE2ETest extends AbstractE2ETest {
 
     @Test
     void upsert_updateParentById_updatesRow() {
-        jdbc.update("INSERT INTO parent(name) VALUES (?)", "Parent Old");
+        jdbc.update("INSERT INTO " + tenantTable("parent") + "(name) VALUES (?)", "Parent Old");
         var r = postUpsert(E2ETestConfig.T_PARENT, Map.of("id", 3, "name", "Parent New"));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(r.getBody()).containsEntry("name", "Parent New").containsEntry("id", 3);
-        assertThat(jdbc.queryForObject("SELECT name FROM parent WHERE id = 3", String.class)).isEqualTo("Parent New");
+        assertThat(jdbc.queryForObject("SELECT name FROM " + tenantTable("parent") + " WHERE id = 3", String.class)).isEqualTo("Parent New");
     }
 
     @Test
@@ -56,8 +56,8 @@ public class UpsertE2ETest extends AbstractE2ETest {
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(r.getBody()).containsEntry("name", "Child X").containsKey("id");
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM parent WHERE name = 'Parent Nested'", Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM child WHERE name = 'Child X'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("parent") + " WHERE name = 'Parent Nested'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("child") + " WHERE name = 'Child X'", Integer.class)).isEqualTo(1);
     }
 
     @Test
@@ -71,7 +71,7 @@ public class UpsertE2ETest extends AbstractE2ETest {
                 )
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM child WHERE name IN ('Kid 1','Kid 2')", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("child") + " WHERE name IN ('Kid 1','Kid 2')", Integer.class)).isEqualTo(2);
     }
 
     @Test
@@ -88,7 +88,7 @@ public class UpsertE2ETest extends AbstractE2ETest {
                 )
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM child_meta WHERE meta_value IN ('m1','m2')", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("child_meta") + " WHERE meta_value IN ('m1','m2')", Integer.class)).isEqualTo(2);
     }
 
     @Test
@@ -128,7 +128,7 @@ public class UpsertE2ETest extends AbstractE2ETest {
                 "updatedAt", "2024-01-15T10:00:00+00:00"
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM child WHERE name = 'Child TS'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("child") + " WHERE name = 'Child TS'", Integer.class)).isEqualTo(1);
     }
 
     @Test
@@ -141,7 +141,7 @@ public class UpsertE2ETest extends AbstractE2ETest {
                 "updatedAt", now.toString()
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT parent_id FROM child WHERE name = 'Child Num'", Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT parent_id FROM " + tenantTable("child") + " WHERE name = 'Child Num'", Long.class)).isEqualTo(1L);
     }
 
     @Test
@@ -172,7 +172,7 @@ public class UpsertE2ETest extends AbstractE2ETest {
     @Test
     void upsert_updateChild_updatesTimestamps() {
         Instant now = Instant.parse("2024-01-15T10:00:00Z");
-        jdbc.update("INSERT INTO child(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
+        jdbc.update("INSERT INTO " + tenantTable("child") + "(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
                 1L, "Child U", Timestamp.from(now), Timestamp.from(now));
         var r = postUpsert(E2ETestConfig.T_CHILD, Map.of(
                 "id", 1,
@@ -180,11 +180,11 @@ public class UpsertE2ETest extends AbstractE2ETest {
                 "updatedAt", "2024-01-15T12:00:00Z"
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT name FROM child WHERE id = 1", String.class)).isEqualTo("Child U2");
+        assertThat(jdbc.queryForObject("SELECT name FROM " + tenantTable("child") + " WHERE id = 1", String.class)).isEqualTo("Child U2");
     }
 
     private void setCascade(String relationAlias, String cascade) {
-        jdbc.update("UPDATE meta_relation SET cascade_type = ? WHERE alias = ?", cascade, relationAlias);
+        jdbc.update("UPDATE " + tenantTable("meta_relation") + " SET cascade_type = ? WHERE alias = ?", cascade, relationAlias);
     }
 }
 

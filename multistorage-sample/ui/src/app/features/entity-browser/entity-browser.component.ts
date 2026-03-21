@@ -23,6 +23,7 @@ import {
   styleUrl: './entity-browser.component.scss'
 })
 export class EntityBrowserComponent implements OnInit {
+  protected tenantCode = '';
   protected readonly pageSize = 20;
   protected selectedTable: TableDiscoveryDto | null = null;
   protected selectedColumns: ColumnDiscoveryDto[] = [];
@@ -50,6 +51,9 @@ export class EntityBrowserComponent implements OnInit {
       this.responseBody = debug.responseSample ?? {};
     });
     this.route.paramMap.subscribe((params) => {
+      const tenant = params.get('tenantCode') ?? '';
+      this.tenantCode = tenant;
+      this.api.setTenantCode(tenant);
       const activeEntity = params.get('activeEntity');
       if (!activeEntity) {
         this.notifications.show('Entity is not selected.', 3500, 'warning');
@@ -86,16 +90,20 @@ export class EntityBrowserComponent implements OnInit {
           this.selectedTable = table;
           this.selectedColumns = table.columns ?? [];
           this.entityIdKey = this.api.resolveIdField(this.selectedColumns);
-          this.browserColumns = this.selectedColumns.map((column) => ({
-            key: column.alias?.trim() ? column.alias : column.name,
-            label: column.alias || column.name,
-            searchable: column.searchable,
-            dataType: column.dataType,
-            sortable: true
-          }));
+          this.browserColumns = this.selectedColumns.map((column) => {
+            const key = column.alias?.trim() ? column.alias : column.name;
+            return {
+              key,
+              label: column.alias || column.name,
+              searchable: column.searchable,
+              dataType: column.dataType,
+              sortable: true,
+              editable: false
+            };
+          });
           this.rows = [];
           this.filters = {};
-          this.requestPath = `/multistorage/api/${table.pathSegment}/search`;
+          this.requestPath = this.api.entitySearchPath(table.pathSegment);
           this.sortBy = '';
           this.sortOrder = 'ASC';
           this.search();

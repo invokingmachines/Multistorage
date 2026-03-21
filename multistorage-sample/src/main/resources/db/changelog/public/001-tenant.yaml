@@ -1,0 +1,31 @@
+databaseChangeLog:
+  - changeSet:
+      id: public-001-tenant-table
+      author: multistorage-sample
+      changes:
+        - sql:
+            dbms: postgresql
+            splitStatements: false
+            sql: |
+              CREATE TABLE IF NOT EXISTS public.tenant (
+                id BIGSERIAL PRIMARY KEY,
+                code TEXT NOT NULL UNIQUE
+              );
+  - changeSet:
+      id: public-002-seed-tenants
+      author: multistorage-sample
+      changes:
+        - sql:
+            dbms: postgresql
+            splitStatements: false
+            sql: |
+              INSERT INTO public.tenant (id, code) VALUES (1, 'demo') ON CONFLICT (id) DO NOTHING;
+              INSERT INTO public.tenant (id, code) VALUES (2, 'acme') ON CONFLICT (id) DO NOTHING;
+  - changeSet:
+      id: public-003-tenant-sequence
+      author: multistorage-sample
+      changes:
+        - sql:
+            dbms: postgresql
+            splitStatements: false
+            sql: SELECT setval(pg_get_serial_sequence('public.tenant', 'id'), (SELECT COALESCE(MAX(id), 1) FROM public.tenant));

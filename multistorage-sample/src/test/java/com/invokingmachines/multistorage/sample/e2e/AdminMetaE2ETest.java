@@ -30,7 +30,7 @@ public class AdminMetaE2ETest extends AbstractE2ETest {
     void admin_upsertTable_createsRow() {
         var r = postAdmin("/tables", Map.of("name", "order_line", "alias", "OrderLine"));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM meta_table WHERE name = 'order_line'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("meta_table") + " WHERE name = 'order_line'", Integer.class)).isEqualTo(1);
     }
 
     @Test
@@ -43,7 +43,7 @@ public class AdminMetaE2ETest extends AbstractE2ETest {
                 "searchable", true
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM meta_column WHERE name = 'code'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("meta_column") + " WHERE name = 'code'", Integer.class)).isEqualTo(1);
     }
 
     @Test
@@ -59,7 +59,7 @@ public class AdminMetaE2ETest extends AbstractE2ETest {
                 "active", true
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT cascade_type FROM meta_relation WHERE alias = ?", String.class, E2ETestConfig.R_PARENT_TO_CHILD))
+        assertThat(jdbc.queryForObject("SELECT cascade_type FROM " + tenantTable("meta_relation") + " WHERE alias = ?", String.class, E2ETestConfig.R_PARENT_TO_CHILD))
                 .isEqualTo("NONE");
 
         // revert

@@ -4,7 +4,7 @@ import com.invokingmachines.multistorage.dto.meta.QueryMeta;
 import com.invokingmachines.multistorage.dto.meta.TableMeta;
 import com.invokingmachines.multistorage.pipeline.OperationType;
 import com.invokingmachines.multistorage.pipeline.meta.QueryMetaFilter;
-import com.invokingmachines.multistorage.query.service.QueryCompiler;
+import com.invokingmachines.multistorage.data.service.QueryCompiler;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 

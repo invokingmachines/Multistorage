@@ -1,5 +1,6 @@
 package com.invokingmachines.multistorage.openapi;
 
+import com.invokingmachines.multistorage.config.MultistorageWebProperties;
 import com.invokingmachines.multistorage.dto.meta.QueryMeta;
 import com.invokingmachines.multistorage.dto.meta.TableMeta;
 import com.invokingmachines.multistorage.meta.MetaProvider;
@@ -41,6 +42,7 @@ public class EntitySearchOpenApiCustomizer implements GlobalOpenApiCustomizer {
     );
 
     private final MetaProvider metaProvider;
+    private final MultistorageWebProperties webProperties;
 
     @Override
     public void customise(OpenAPI openApi) {
@@ -49,19 +51,38 @@ public class EntitySearchOpenApiCustomizer implements GlobalOpenApiCustomizer {
         Map<String, TableMeta> uniqueTables = new LinkedHashMap<>();
         tables.forEach((key, tm) -> uniqueTables.putIfAbsent(tm.getName(), tm));
 
+        String base = tenantApiBasePath();
+
         uniqueTables.forEach((tableName, tableMeta) -> {
             String pathSegment = NamingUtils.toPathSegment(tableName);
             String tagName = tagName(tableName);
 
             openApi.addTagsItem(new Tag().name(tagName).description(tableName + " — search, upsert, delete"));
 
-            addSearchPath(openApi, tableName, pathSegment, tagName, tableMeta);
-            addUpsertPath(openApi, tableName, pathSegment, tagName, tableMeta);
-            addDeletePath(openApi, tableName, pathSegment, tagName);
+            addSearchPath(openApi, base, tableName, pathSegment, tagName, tableMeta);
+            addUpsertPath(openApi, base, tableName, pathSegment, tagName, tableMeta);
+            addDeletePath(openApi, base, tableName, pathSegment, tagName);
         });
     }
 
-    private void addSearchPath(OpenAPI openApi, String tableName, String pathSegment, String tagName, TableMeta tableMeta) {
+    private String tenantApiBasePath() {
+        String p = webProperties.getApiPrefix();
+        if (p == null || p.isBlank()) {
+            return "/multistorage/api/{tenantId}";
+        }
+        return p.endsWith("/") ? p.substring(0, p.length() - 1) : p.strip();
+    }
+
+    private static Parameter tenantIdParameter() {
+        return new Parameter()
+                .name("tenantId")
+                .in("path")
+                .required(true)
+                .description("Tenant identifier (application-specific, e.g. tenant code)")
+                .schema(new Schema<>().type("string").example("demo"));
+    }
+
+    private void addSearchPath(OpenAPI openApi, String base, String tableName, String pathSegment, String tagName, TableMeta tableMeta) {
         Schema<?> querySchema = new Schema<>().type("object").description("Query: select, where, optional page (0-based), size (page size). When page/size present, response is paged object.")
                 .addProperty("select", new Schema<>().type("array").description("Field paths"))
                 .addProperty("where", new Schema<>().type("object").description("Criteria"))
@@ -79,16 +100,17 @@ public class EntitySearchOpenApiCustomizer implements GlobalOpenApiCustomizer {
                 .summary("Search " + tableName)
                 .description("Execute search query. Body: select (field paths), where (criteria). Optional page, size for pagination; then response is { content, totalElements, totalPages, size, number }.")
                 .addTagsItem(tagName)
+                .addParametersItem(tenantIdParameter())
                 .requestBody(new RequestBody().required(true)
                         .content(new Content().addMediaType("application/json", searchRequestMedia)))
                 .responses(new ApiResponses()
                         .addApiResponse("200", new ApiResponse()
                                 .description("Search results")
                                 .content(new Content().addMediaType("application/json", searchResponseMedia))));
-        openApi.path("/multistorage/api/" + pathSegment + "/search", new PathItem().post(op));
+        openApi.path(base + "/" + pathSegment + "/search", new PathItem().post(op));
     }
 
-    private void addUpsertPath(OpenAPI openApi, String tableName, String pathSegment, String tagName,
+    private void addUpsertPath(OpenAPI openApi, String base, String tableName, String pathSegment, String tagName,
                               TableMeta tableMeta) {
         Object upsertRequestExample = buildEntityExample(tableMeta, rel -> Map.of("id", 1), null);
         Schema<?> entitySchema = new Schema<>().type("object").description("Entity to create or update (upsert)");
@@ -104,21 +126,23 @@ public class EntitySearchOpenApiCustomizer implements GlobalOpenApiCustomizer {
                 .summary("Upsert " + tableName)
                 .description("Create or update entity. If id present — update, else insert. Relations with cascade can be nested.")
                 .addTagsItem(tagName)
+                .addParametersItem(tenantIdParameter())
                 .requestBody(new RequestBody().required(true)
                         .content(new Content().addMediaType("application/json", upsertRequestMedia)))
                 .responses(new ApiResponses()
                         .addApiResponse("200", new ApiResponse()
                                 .description("Saved entity with id")
                                 .content(new Content().addMediaType("application/json", upsertResponseMedia))));
-        openApi.path("/multistorage/api/" + pathSegment, new PathItem().post(op));
+        openApi.path(base + "/" + pathSegment, new PathItem().post(op));
     }
 
-    private void addDeletePath(OpenAPI openApi, String tableName, String pathSegment, String tagName) {
+    private void addDeletePath(OpenAPI openApi, String base, String tableName, String pathSegment, String tagName) {
         Operation op = new Operation()
                 .operationId("delete_" + tableName)
                 .summary("Delete " + tableName)
                 .description("Delete entity by id.")
                 .addTagsItem(tagName)
+                .addParametersItem(tenantIdParameter())
                 .addParametersItem(new Parameter()
                         .name("id")
                         .in("path")
@@ -131,7 +155,7 @@ public class EntitySearchOpenApiCustomizer implements GlobalOpenApiCustomizer {
                                 .content(new Content().addMediaType("application/json",
                                         new MediaType().schema(new Schema<>().type("object"))
                                                 .example(Map.of("deleted", true))))));
-        openApi.path("/multistorage/api/" + pathSegment + "/{id}", new PathItem().delete(op));
+        openApi.path(base + "/" + pathSegment + "/{id}", new PathItem().delete(op));
     }
 
     private Map<String, Object> buildEntityExample(TableMeta table, java.util.function.Function<String, Object> relationExample, Long id) {

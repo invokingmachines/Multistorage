@@ -51,6 +51,7 @@ public class MetaColumnCrudService {
             if (request.getDataType() != null) existing.setDataType(request.getDataType());
             if (request.getReadable() != null) existing.setReadable(request.getReadable());
             if (request.getSearchable() != null) existing.setSearchable(request.getSearchable());
+            if (request.getEditable() != null) existing.setEditable(request.getEditable());
             return toDto(repository.save(existing), table);
         }
         String proposedAlias = request.getAlias() != null ? request.getAlias() : request.getName();
@@ -108,6 +109,7 @@ public class MetaColumnCrudService {
                 .dataType(e.getDataType())
                 .readable(e.getReadable())
                 .searchable(e.getSearchable())
+                .editable(e.getEditable())
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())
                 .build();

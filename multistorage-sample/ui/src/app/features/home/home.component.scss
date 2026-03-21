@@ -1,6 +1,34 @@
 .home-page {
   min-height: calc(100vh - 140px);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 16px;
+}
+
+.home-heading {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.tenant-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.tenant-button {
+  border: 1px solid #000000;
+  background: #ffffff;
+  color: #000000;
+  padding: 10px 16px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.error {
+  color: #b00020;
 }

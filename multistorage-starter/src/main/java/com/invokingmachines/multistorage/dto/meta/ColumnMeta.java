@@ -13,4 +13,5 @@ public class ColumnMeta {
     private String dataType;
     private Boolean readable;
     private Boolean searchable;
+    private Boolean editable;
 }

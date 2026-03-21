@@ -12,6 +12,7 @@ import { TableDiscoveryDto } from '../../core/models/multistorage-models';
   styleUrl: './menu.component.scss'
 })
 export class MenuComponent implements OnInit {
+  @Input({ required: true }) tenantCode = '';
   @Input() centered = false;
   protected tables: TableDiscoveryDto[] = [];
   protected loadingMeta = false;
