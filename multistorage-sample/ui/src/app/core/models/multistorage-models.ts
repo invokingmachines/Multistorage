@@ -28,6 +28,7 @@ export interface SearchResult {
 export interface SearchRequest {
   page: number;
   size: number;
+  select?: string[][];
   sort?: {
     by: string;
     order: 'ASC' | 'DESC';

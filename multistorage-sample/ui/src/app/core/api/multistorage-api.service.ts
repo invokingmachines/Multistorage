@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, map, Observable, tap } from 'rxjs';
 import {
+  ColumnDiscoveryDto,
   MetaColumnDto,
   MetaDiscoveryDto,
   MetaRelationDto,
@@ -56,6 +57,31 @@ export class MultistorageApiService {
           });
         })
       );
+  }
+
+  findById(entityPathSegment: string, idField: string, id: string): Observable<Record<string, unknown> | null> {
+    return this.search(entityPathSegment, {
+      page: 0,
+      size: 1,
+      where: {
+        logician: 'AND',
+        criteria: [{ operator: 'EQ', value: id, field: [idField] }]
+      }
+    }).pipe(map((result) => result.content?.[0] ?? null));
+  }
+
+  upsertEntity(entityPathSegment: string, payload: Record<string, unknown>): Observable<Record<string, unknown>> {
+    return this.http.post<Record<string, unknown>>(`/multistorage/api/${entityPathSegment}/upsert`, payload);
+  }
+
+  resolveIdField(columns: ColumnDiscoveryDto[]): string {
+    return (
+      columns.find((c) => (c.alias || c.name || '').toLowerCase() === 'id')?.alias ||
+      columns.find((c) => (c.alias || c.name || '').toLowerCase() === 'id')?.name ||
+      columns[0]?.alias ||
+      columns[0]?.name ||
+      'id'
+    );
   }
 
   listMetaTables(): Observable<MetaTableDto[]> {

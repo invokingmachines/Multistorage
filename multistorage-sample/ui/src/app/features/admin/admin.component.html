@@ -1,147 +1,43 @@
 <section class="admin-page">
-  @if (loading) {
-    <p>Loading admin data...</p>
-  }
-
-  @if (errorMessage) {
-    <p class="error">{{ errorMessage }}</p>
-  }
-
   <h2>MetaTable</h2>
-  <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          @for (column of tableColumns; track column.key) {
-            <th>{{ column.label }}</th>
-          }
-          <th>actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of metaTables; track row.name) {
-          <tr>
-            @for (column of tableColumns; track column.key) {
-              <td>
-                @if (!column.editable) {
-                  {{ $any(row)[column.key] }}
-                } @else {
-                  <input
-                    type="text"
-                    [value]="$any(row)[column.key] ?? ''"
-                    (input)="setCell($any(row), column, $any($event.target).value)"
-                  />
-                }
-              </td>
-            }
-            <td><button type="button" [class.save-dirty]="isMetaTableDirty(row)" (click)="saveMetaTable(row)">Save</button></td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
+  <app-generic-table
+    [columns]="tableColumns"
+    [rows]="$any(metaTables)"
+    (cellEdit)="onGenericCellEdit($event)"
+    [extraColumns]="[{ key: 'actions', label: '', template: saveTableTpl }]"
+  />
 
   <h2>MetaColumn</h2>
-  <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          @for (column of columnColumns; track column.key) {
-            <th>{{ column.label }}</th>
-          }
-          <th>actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of metaColumns; track row.table + '-' + row.name) {
-          <tr>
-            @for (column of columnColumns; track column.key) {
-              <td>
-                @if (!column.editable) {
-                  {{ $any(row)[column.key] }}
-                } @else if (column.type === 'boolean') {
-                  <input
-                    type="checkbox"
-                    [checked]="!!$any(row)[column.key]"
-                    (change)="setCell($any(row), column, $any($event.target).checked)"
-                  />
-                } @else if (column.type === 'datetime') {
-                  <input
-                    type="datetime-local"
-                    [value]="asInputDate($any(row)[column.key])"
-                    (change)="setCell($any(row), column, $any($event.target).value)"
-                  />
-                } @else if (column.type === 'number') {
-                  <input
-                    type="number"
-                    [value]="$any(row)[column.key] ?? ''"
-                    (input)="setCell($any(row), column, $any($event.target).value)"
-                  />
-                } @else {
-                  <input
-                    type="text"
-                    [value]="$any(row)[column.key] ?? ''"
-                    (input)="setCell($any(row), column, $any($event.target).value)"
-                  />
-                }
-              </td>
-            }
-            <td><button type="button" [class.save-dirty]="isMetaColumnDirty(row)" (click)="saveMetaColumn(row)">Save</button></td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
+  <app-generic-table
+    [columns]="columnColumns"
+    [rows]="$any(metaColumns)"
+    (cellEdit)="onGenericCellEdit($event)"
+    [extraColumns]="[{ key: 'actions', label: '', template: saveColumnTpl }]"
+  />
 
   <h2>MetaRelation</h2>
-  <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          @for (column of relationColumns; track column.key) {
-            <th>{{ column.label }}</th>
-          }
-          <th>actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of metaRelations; track row.fromTable + '-' + row.alias) {
-          <tr>
-            @for (column of relationColumns; track column.key) {
-              <td>
-                @if (!column.editable) {
-                  {{ $any(row)[column.key] }}
-                } @else if (column.type === 'boolean') {
-                  <input
-                    type="checkbox"
-                    [checked]="!!$any(row)[column.key]"
-                    (change)="setCell($any(row), column, $any($event.target).checked)"
-                  />
-                } @else if (column.type === 'datetime') {
-                  <input
-                    type="datetime-local"
-                    [value]="asInputDate($any(row)[column.key])"
-                    (change)="setCell($any(row), column, $any($event.target).value)"
-                  />
-                } @else if (column.type === 'number') {
-                  <input
-                    type="number"
-                    [value]="$any(row)[column.key] ?? ''"
-                    (input)="setCell($any(row), column, $any($event.target).value)"
-                  />
-                } @else {
-                  <input
-                    type="text"
-                    [value]="$any(row)[column.key] ?? ''"
-                    (input)="setCell($any(row), column, $any($event.target).value)"
-                  />
-                }
-              </td>
-            }
-            <td><button type="button" [class.save-dirty]="isMetaRelationDirty(row)" (click)="saveMetaRelation(row)">Save</button></td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
+  <app-generic-table
+    [columns]="relationColumns"
+    [rows]="$any(metaRelations)"
+    (cellEdit)="onGenericCellEdit($event)"
+    [extraColumns]="[{ key: 'actions', label: '', template: saveRelationTpl }]"
+  />
+
+  <ng-template #saveTableTpl let-row>
+    <button type="button" [class.save-dirty]="isMetaTableDirty($any(row))" (click)="saveMetaTable($any(row))">Save</button>
+  </ng-template>
+
+  <ng-template #saveColumnTpl let-row>
+    <button type="button" [class.save-dirty]="isMetaColumnDirty($any(row))" (click)="saveMetaColumn($any(row))">Save</button>
+  </ng-template>
+
+  <ng-template #saveRelationTpl let-row>
+    <button
+      type="button"
+      [class.save-dirty]="isMetaRelationDirty($any(row))"
+      (click)="saveMetaRelation($any(row))"
+    >
+      Save
+    </button>
+  </ng-template>
 </section>

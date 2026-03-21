@@ -2,19 +2,25 @@ import { Component, OnInit } from '@angular/core';
 import { finalize, forkJoin, of, switchMap } from 'rxjs';
 import { MultistorageApiService } from '../../core/api/multistorage-api.service';
 import { MetaColumnDto, MetaRelationDto, MetaTableDto } from '../../core/models/multistorage-models';
+import { PopupNotificationService } from '../../core/ui/popup-notification.service';
+import {
+  GenericTableCellEditEvent,
+  GenericTableColumn,
+  GenericTableComponent
+} from '../../shared/generic-table/generic-table.component';
 
 type ColumnType = 'text' | 'number' | 'boolean' | 'datetime';
-type AdminColumn = { key: string; label: string; type: ColumnType; editable: boolean };
+type AdminColumn = GenericTableColumn & { type: ColumnType; editable: boolean };
 
 @Component({
   selector: 'app-admin',
   standalone: true,
+  imports: [GenericTableComponent],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss'
 })
 export class AdminComponent implements OnInit {
   protected loading = false;
-  protected errorMessage: string | null = null;
 
   protected metaTables: MetaTableDto[] = [];
   protected metaColumns: MetaColumnDto[] = [];
@@ -54,7 +60,10 @@ export class AdminComponent implements OnInit {
     { key: 'updatedAt', label: 'updatedAt', type: 'datetime', editable: false }
   ];
 
-  constructor(private readonly api: MultistorageApiService) {}
+  constructor(
+    private readonly api: MultistorageApiService,
+    private readonly notifications: PopupNotificationService
+  ) {}
 
   ngOnInit(): void {
     this.reload();
@@ -62,7 +71,7 @@ export class AdminComponent implements OnInit {
 
   protected reload(): void {
     this.loading = true;
-    this.errorMessage = null;
+    this.notifications.show('Loading admin data...', 1200);
     this.api
       .listMetaTables()
       .pipe(
@@ -86,33 +95,29 @@ export class AdminComponent implements OnInit {
           this.captureSnapshots();
         },
         error: () => {
-          this.errorMessage = 'Failed to load admin data.';
+          this.notifications.show('Failed to load admin data.', 3500, 'error');
         }
       });
   }
 
-  protected asInputDate(value: unknown): string {
-    if (!value) {
-      return '';
-    }
-    const date = new Date(String(value));
-    if (Number.isNaN(date.getTime())) {
-      return '';
-    }
-    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  }
-
-  protected setCell(row: Record<string, unknown>, column: AdminColumn, rawValue: unknown): void {
+  protected setCell(row: Record<string, unknown>, column: GenericTableColumn, rawValue: unknown): void {
     if (!column.editable) {
       return;
     }
-    row[column.key] = this.normalizeValue(column.type, rawValue);
+    row[column.key] = this.normalizeValue((column.type as ColumnType | undefined) ?? 'text', rawValue);
+  }
+
+  protected onGenericCellEdit(event: GenericTableCellEditEvent): void {
+    this.setCell(event.row, event.column, event.value);
   }
 
   protected saveMetaTable(row: MetaTableDto): void {
     this.api.upsertMetaTable({ id: row.id, name: String(row.name ?? ''), alias: String(row.alias ?? '') }).subscribe({
-      next: () => this.reload(),
-      error: () => (this.errorMessage = 'Failed to save meta table.')
+      next: () => {
+        this.notifications.show('Meta table saved.', 3500, 'info');
+        this.reload();
+      },
+      error: () => this.notifications.show('Failed to save meta table.', 3500, 'error')
     });
   }
 
@@ -129,8 +134,11 @@ export class AdminComponent implements OnInit {
         searchable: Boolean(row.searchable)
       })
       .subscribe({
-        next: () => this.reload(),
-        error: () => (this.errorMessage = 'Failed to save meta column.')
+        next: () => {
+          this.notifications.show('Meta column saved.', 3500, 'info');
+          this.reload();
+        },
+        error: () => this.notifications.show('Failed to save meta column.', 3500, 'error')
       });
   }
 
@@ -148,8 +156,11 @@ export class AdminComponent implements OnInit {
         active: Boolean(row.active)
       } as Omit<MetaRelationDto, 'createdAt' | 'updatedAt'>)
       .subscribe({
-        next: () => this.reload(),
-        error: () => (this.errorMessage = 'Failed to save meta relation.')
+        next: () => {
+          this.notifications.show('Meta relation saved.', 3500, 'info');
+          this.reload();
+        },
+        error: () => this.notifications.show('Failed to save meta relation.', 3500, 'error')
       });
   }
 

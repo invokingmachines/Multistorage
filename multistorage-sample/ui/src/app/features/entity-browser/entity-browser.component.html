@@ -1,12 +1,4 @@
 <section class="table-section">
-  @if (loading) {
-    <p>Loading...</p>
-  }
-
-  @if (errorMessage) {
-    <p class="error">{{ errorMessage }}</p>
-  }
-
   @if (selectedTable) {
     <div class="layout">
       <div class="left-pane">
@@ -29,78 +21,28 @@
           <button type="button" (click)="search()">Search</button>
         </div>
 
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                @for (column of selectedColumns; track column.name) {
-                  <th>
-                    <div class="column-header">
-                      <span class="column-label">{{ column.alias || column.name }}</span>
-                      <button type="button" class="sort-button" (click)="toggleSort(column)">
-                        {{ sortMarker(column) }}
-                      </button>
-                    </div>
-                    <small>{{ column.dataType }}</small>
-                  </th>
-                }
-              </tr>
-              <tr class="filter-row">
-                @for (column of selectedColumns; track column.name) {
-                  <th>
-                    @if (!isSearchableColumn(column)) {
-                      <span class="not-searchable">Not searchable</span>
-                    } @else if (isDateColumn(column)) {
-                      <div class="date-range">
-                        <input
-                          type="datetime-local"
-                          [value]="dateFromValue(column)"
-                          (input)="onDateFromChange(column, $any($event.target).value)"
-                          placeholder="From"
-                        />
-                        <input
-                          type="datetime-local"
-                          [value]="dateToValue(column)"
-                          (input)="onDateToChange(column, $any($event.target).value)"
-                          placeholder="To"
-                        />
-                      </div>
-                    } @else if (isIntegerColumn(column)) {
-                      <input
-                        type="number"
-                        [value]="intFilterValue(column)"
-                        (input)="onIntFilterChange(column, $any($event.target).value)"
-                        placeholder="Exact"
-                      />
-                    } @else {
-                      <input
-                        type="text"
-                        [value]="filterValue(column)"
-                        (input)="onFilterChange(column, $any($event.target).value)"
-                        placeholder="LIKE filter..."
-                      />
-                    }
-                  </th>
-                }
-              </tr>
-            </thead>
-            <tbody>
-              @if (rows.length === 0) {
-                <tr>
-                  <td [attr.colspan]="selectedColumns.length || 1">No rows found.</td>
-                </tr>
-              } @else {
-                @for (row of rows; track $index) {
-                  <tr>
-                    @for (column of selectedColumns; track column.name) {
-                      <td>{{ cellValue(row, column) }}</td>
-                    }
-                  </tr>
-                }
-              }
-            </tbody>
-          </table>
-        </div>
+        <app-generic-table
+          [columns]="browserColumns"
+          [rows]="rows"
+          [extraColumns]="[{ key: 'edit', label: '', template: editActionTpl }]"
+          [showFilters]="true"
+          [showDataTypes]="true"
+          [sortBy]="sortBy"
+          [sortOrder]="sortOrder"
+          [filterState]="tableFilterState()"
+          (sortToggle)="toggleSortByTableColumn($event)"
+          (filterChange)="onGenericFilterChange($event)"
+        />
+
+        <ng-template #editActionTpl let-row>
+          <a
+            [routerLink]="['/browser', selectedTable.pathSegment, $any(row)[entityIdKey]]"
+            [class.disabled-link]="!$any(row)[entityIdKey]"
+            (click)="!$any(row)[entityIdKey] && $event.preventDefault()"
+          >
+            Edit
+          </a>
+        </ng-template>
       </div>
     </div>
   }

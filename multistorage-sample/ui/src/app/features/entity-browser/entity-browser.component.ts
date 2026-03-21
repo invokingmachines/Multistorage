@@ -1,16 +1,24 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { MultistorageApiService } from '../../core/api/multistorage-api.service';
+import { PopupNotificationService } from '../../core/ui/popup-notification.service';
 import { ColumnDiscoveryDto, SearchRequest, TableDiscoveryDto } from '../../core/models/multistorage-models';
 import { EntityMultiselectComponent } from './entity-multiselect.component';
 import { QueryBodyPreviewComponent } from './query-body-preview.component';
 import { MenuComponent } from '../menu/menu.component';
+import {
+  GenericTableColumn,
+  GenericTableComponent,
+  GenericTableFilterChangeEvent,
+  GenericTableFilterState
+} from '../../shared/generic-table/generic-table.component';
 
 @Component({
   selector: 'app-entity-browser',
   standalone: true,
-  imports: [QueryBodyPreviewComponent, MenuComponent, EntityMultiselectComponent],
+  imports: [QueryBodyPreviewComponent, MenuComponent, EntityMultiselectComponent, GenericTableComponent, RouterLink],
   templateUrl: './entity-browser.component.html',
   styleUrl: './entity-browser.component.scss'
 })
@@ -20,17 +28,19 @@ export class EntityBrowserComponent implements OnInit {
   protected selectedColumns: ColumnDiscoveryDto[] = [];
   protected rows: Array<Record<string, unknown>> = [];
   protected loading = false;
-  protected errorMessage: string | null = null;
   protected filters: Record<string, { text?: string; intValue?: string; dateFrom?: string; dateTo?: string }> = {};
   protected requestBody: SearchRequest = { page: 0, size: 20 };
   protected responseBody: unknown = {};
   protected requestPath = '';
   protected sortBy = '';
   protected sortOrder: 'ASC' | 'DESC' = 'ASC';
+  protected browserColumns: GenericTableColumn[] = [];
+  protected entityIdKey = 'id';
 
   constructor(
     private readonly route: ActivatedRoute,
-    private readonly api: MultistorageApiService
+    private readonly api: MultistorageApiService,
+    private readonly notifications: PopupNotificationService
   ) {}
 
   ngOnInit(): void {
@@ -42,7 +52,7 @@ export class EntityBrowserComponent implements OnInit {
     this.route.paramMap.subscribe((params) => {
       const activeEntity = params.get('activeEntity');
       if (!activeEntity) {
-        this.errorMessage = 'Entity is not selected.';
+        this.notifications.show('Entity is not selected.', 3500, 'warning');
         this.selectedTable = null;
         this.selectedColumns = [];
         this.rows = [];
@@ -52,19 +62,13 @@ export class EntityBrowserComponent implements OnInit {
     });
   }
 
-  protected cellValue(row: Record<string, unknown>, column: ColumnDiscoveryDto): string {
-    const key = this.columnKey(column);
-    const value = row[key];
-    return value === null || value === undefined ? '' : String(value);
-  }
-
   private columnKey(column: ColumnDiscoveryDto): string {
     return column.alias?.trim() ? column.alias : column.name;
   }
 
   private loadEntity(activeEntity: string): void {
     this.loading = true;
-    this.errorMessage = null;
+    this.notifications.show('Loading metadata...', 1200);
     this.api
       .getDiscovery()
       .pipe(finalize(() => (this.loading = false)))
@@ -75,12 +79,20 @@ export class EntityBrowserComponent implements OnInit {
             this.selectedTable = null;
             this.selectedColumns = [];
             this.rows = [];
-            this.errorMessage = `Entity "${activeEntity}" is not found in metadata.`;
+            this.notifications.show(`Entity "${activeEntity}" is not found in metadata.`, 3500, 'warning');
             return;
           }
 
           this.selectedTable = table;
           this.selectedColumns = table.columns ?? [];
+          this.entityIdKey = this.api.resolveIdField(this.selectedColumns);
+          this.browserColumns = this.selectedColumns.map((column) => ({
+            key: column.alias?.trim() ? column.alias : column.name,
+            label: column.alias || column.name,
+            searchable: column.searchable,
+            dataType: column.dataType,
+            sortable: true
+          }));
           this.rows = [];
           this.filters = {};
           this.requestPath = `/multistorage/api/${table.pathSegment}/search`;
@@ -89,7 +101,7 @@ export class EntityBrowserComponent implements OnInit {
           this.search();
         },
         error: () => {
-          this.errorMessage = 'Failed to load metadata.';
+          this.notifications.show('Failed to load metadata.', 3500, 'error');
         }
       });
   }
@@ -155,6 +167,7 @@ export class EntityBrowserComponent implements OnInit {
     const request = this.buildRequest();
     this.requestBody = request;
     this.loading = true;
+    this.notifications.show('Loading table data...', 1200);
     this.api
       .search(this.selectedTable.pathSegment, request)
       .pipe(finalize(() => (this.loading = false)))
@@ -164,7 +177,7 @@ export class EntityBrowserComponent implements OnInit {
           this.responseBody = this.rows[0] ?? {};
         },
         error: () => {
-          this.errorMessage = 'Failed to load table data.';
+          this.notifications.show('Failed to load table data.', 3500, 'error');
           this.responseBody = {};
         }
       });
@@ -196,14 +209,69 @@ export class EntityBrowserComponent implements OnInit {
     return this.sortOrder === 'ASC' ? '↑' : '↓';
   }
 
+  protected sortMarkerByTableColumn(column: GenericTableColumn): string {
+    if (this.sortBy !== column.key) {
+      return '↕';
+    }
+    return this.sortOrder === 'ASC' ? '↑' : '↓';
+  }
+
+  protected toggleSortByTableColumn(column: GenericTableColumn): void {
+    const source = this.columnByKey(column.key);
+    if (!source) {
+      return;
+    }
+    this.toggleSort(source);
+  }
+
+  protected columnByKey(key: string): ColumnDiscoveryDto | undefined {
+    return this.selectedColumns.find((c) => (c.alias?.trim() ? c.alias : c.name) === key);
+  }
+
+  protected tableFilterState(): Record<string, GenericTableFilterState> {
+    return Object.entries(this.filters).reduce<Record<string, GenericTableFilterState>>((acc, [key, value]) => {
+      acc[key] = {
+        text: value.text,
+        intValue: value.intValue,
+        dateFrom: value.dateFrom,
+        dateTo: value.dateTo
+      };
+      return acc;
+    }, {});
+  }
+
+  protected onGenericFilterChange(event: GenericTableFilterChangeEvent): void {
+    const column = this.columnByKey(event.column.key);
+    if (!column) {
+      return;
+    }
+    if (event.kind === 'number') {
+      this.onIntFilterChange(column, event.value);
+      return;
+    }
+    if (event.kind === 'dateFrom') {
+      this.onDateFromChange(column, event.value);
+      return;
+    }
+    if (event.kind === 'dateTo') {
+      this.onDateToChange(column, event.value);
+      return;
+    }
+    this.onFilterChange(column, event.value);
+  }
+
   private buildRequest(): SearchRequest {
-    const criteria = this.selectedColumns.reduce<NonNullable<SearchRequest['where']>['criteria']>((acc, column) => {
-      const key = this.columnKey(column);
-      if (!this.isSearchableColumn(column)) {
+    const criteria = this.browserColumns.reduce<NonNullable<SearchRequest['where']>['criteria']>((acc, column) => {
+      const key = column.key;
+      if (column.searchable === false) {
         return acc;
       }
-      if (this.isIntegerColumn(column)) {
-        const raw = this.intFilterValue(column).trim();
+      const source = this.columnByKey(key);
+      if (!source) {
+        return acc;
+      }
+      if (this.isIntegerColumn(source)) {
+        const raw = this.intFilterValue(source).trim();
         if (raw.length === 0) {
           return acc;
         }
@@ -219,9 +287,9 @@ export class EntityBrowserComponent implements OnInit {
         return acc;
       }
 
-      if (this.isDateColumn(column)) {
-        const from = this.toIsoDate(this.dateFromValue(column));
-        const to = this.toIsoDate(this.dateToValue(column));
+      if (this.isDateColumn(source)) {
+        const from = this.toIsoDate(this.dateFromValue(source));
+        const to = this.toIsoDate(this.dateToValue(source));
         if (from) {
           acc.push({
             operator: 'GT',
@@ -239,7 +307,7 @@ export class EntityBrowserComponent implements OnInit {
         return acc;
       }
 
-      const value = this.filterValue(column).trim();
+      const value = this.filterValue(source).trim();
       if (value.length > 0) {
         acc.push({
           operator: 'LIKE',

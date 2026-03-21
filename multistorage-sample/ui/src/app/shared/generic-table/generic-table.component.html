@@ -1,0 +1,117 @@
+<div class="table-wrapper">
+  <table>
+    <thead>
+      <tr>
+        @for (column of columns; track column.key) {
+          <th>
+            <div class="column-header">
+              <span class="column-label">{{ column.label }}</span>
+              @if (column.sortable) {
+                <button type="button" class="sort-button" (click)="sortToggle.emit(column)">
+                  {{ sortMarker(column) }}
+                </button>
+              }
+            </div>
+            @if (showDataTypes && column.dataType) {
+              <small>{{ column.dataType }}</small>
+            }
+          </th>
+        }
+        @for (extra of extraColumns; track extra.key) {
+          <th>{{ extra.label }}</th>
+        }
+      </tr>
+      @if (showFilters) {
+        <tr class="filter-row">
+          @for (column of columns; track column.key) {
+            <th>
+              @if (!isSearchableColumn(column)) {
+                <span class="not-searchable"></span>
+              } @else if (isDateColumn(column)) {
+                <div class="date-range">
+                  <input
+                    type="datetime-local"
+                    [value]="filterValue(column, 'dateFrom')"
+                    (input)="onFilterChange(column, 'dateFrom', $any($event.target).value)"
+                    placeholder="From"
+                  />
+                  <input
+                    type="datetime-local"
+                    [value]="filterValue(column, 'dateTo')"
+                    (input)="onFilterChange(column, 'dateTo', $any($event.target).value)"
+                    placeholder="To"
+                  />
+                </div>
+              } @else if (isIntegerColumn(column)) {
+                <input
+                  type="number"
+                  [value]="filterValue(column, 'intValue')"
+                  (input)="onFilterChange(column, 'number', $any($event.target).value)"
+                  placeholder="Exact"
+                />
+              } @else {
+                <input
+                  type="text"
+                  [value]="filterValue(column, 'text')"
+                  (input)="onFilterChange(column, 'text', $any($event.target).value)"
+                  placeholder="LIKE filter..."
+                />
+              }
+            </th>
+          }
+          @for (extra of extraColumns; track extra.key) {
+            <th></th>
+          }
+        </tr>
+      }
+    </thead>
+    <tbody>
+      @if (rows.length === 0) {
+        <tr>
+          <td [attr.colspan]="columns.length + extraColumns.length">{{ emptyText }}</td>
+        </tr>
+      } @else {
+        @for (row of rows; track $index) {
+          <tr>
+            @for (column of columns; track column.key) {
+              <td>
+                @if (!column.editable) {
+                  {{ cellValue(row, column) }}
+                } @else if (isBooleanColumn(column)) {
+                  <input
+                    type="checkbox"
+                    [checked]="!!cellValue(row, column)"
+                    (change)="onCellCheckboxChange(row, column, $any($event.target).checked)"
+                  />
+                } @else if (isDateColumn(column)) {
+                  <input
+                    type="datetime-local"
+                    [value]="cellValue(row, column) ?? ''"
+                    (change)="onCellTextChange(row, column, $any($event.target).value)"
+                  />
+                } @else if (isIntegerColumn(column)) {
+                  <input
+                    type="number"
+                    [value]="cellValue(row, column) ?? ''"
+                    (input)="onCellNumberChange(row, column, $any($event.target).value)"
+                  />
+                } @else {
+                  <input
+                    type="text"
+                    [value]="cellValue(row, column) ?? ''"
+                    (input)="onCellTextChange(row, column, $any($event.target).value)"
+                  />
+                }
+              </td>
+            }
+            @for (extra of extraColumns; track extra.key) {
+              <td>
+                <ng-container [ngTemplateOutlet]="extra.template" [ngTemplateOutletContext]="{ $implicit: row }" />
+              </td>
+            }
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+</div>

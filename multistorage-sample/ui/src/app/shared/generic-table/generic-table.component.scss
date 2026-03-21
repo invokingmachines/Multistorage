@@ -1,0 +1,64 @@
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border: 1px solid #c8c8c8;
+}
+
+th,
+td {
+  border: 1px solid #c8c8c8;
+  text-align: left;
+  padding: 8px;
+  vertical-align: top;
+  background: #ffffff;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.column-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.sort-button {
+  border: 1px solid #9a9a9a;
+  background: #ffffff;
+  color: #000000;
+  cursor: pointer;
+  padding: 0 8px;
+  line-height: 22px;
+  min-width: 32px;
+}
+
+.filter-row input[type='text'],
+.filter-row input[type='number'],
+.filter-row input[type='datetime-local'],
+td input[type='text'],
+td input[type='number'],
+td input[type='datetime-local'] {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #c5c5c5;
+  padding: 6px;
+  background: #ffffff;
+  color: #000000;
+}
+
+.date-range {
+  display: flex;
+  gap: 6px;
+}
+
+.date-range input[type='datetime-local'] {
+  width: 50%;
+  min-width: 0;
+}

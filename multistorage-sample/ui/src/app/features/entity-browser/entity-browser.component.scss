@@ -125,3 +125,8 @@ input {
   color: #666666;
   font-size: 12px;
 }
+
+.disabled-link {
+  pointer-events: none;
+  color: #999999;
+}

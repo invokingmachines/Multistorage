@@ -1,11 +1,8 @@
 <main class="page">
   <div class="top-bar">
     <h1>Multistorage Sample UI</h1>
-    @if (isHomePage) {
-      <a class="top-button" [routerLink]="['/admin']">Admin</a>
-    } @else {
-      <a class="top-button" [routerLink]="['/']">Home</a>
-    }
+    <a class="top-button" [routerLink]="topButtonLink">{{ topButtonLabel }}</a>
   </div>
   <router-outlet />
+  <app-popup-notification />
 </main>
