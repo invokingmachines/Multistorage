@@ -8,11 +8,15 @@ Spring Boot starter that turns any application with a PostgreSQL database into a
 
 ## Current features
 
-- **Configurable HTTP paths (no multitenancy in the starter)** — `multistorage.web.api-tenant-prefix` (e.g. `/api`) for `{prefix}/tenants` and `{prefix}/{tenantId}/admin/meta/...`. `multistorage.web.api-prefix` is the full pattern for discovery + entity CRUD and **must** contain a `{tenantId}` path variable (default `/multistorage/api/{tenantId}`; sample uses `/api/{tenantId}/data`). The `{tenantId}` value is application-defined (the sample maps it from tenant `code`).
-- **Dynamic entity endpoints** — For each business table described by metadata (paths follow `api-prefix` + `/{entity}/...`):
-  - `POST {api-prefix}/{entity}/search`
-  - `POST {api-prefix}/{entity}` (upsert)
-  - `DELETE {api-prefix}/{entity}/{id}`
+- **Configurable HTTP paths** — `MultistorageWebProperties`: `multistorage.web.api-tenant-prefix` (default `/api`) and `multistorage.web.api-prefix` (default `/api/{tenantId}`). The `{tenantId}` segment is a Spring MVC path variable; its meaning is application-defined (the sample uses tenant **code**). The starter registers controllers only under `api-prefix`:
+  - **Entity API**: `POST/DELETE {api-prefix}/data/{entity}/...` (see below).
+  - **Discovery**: `GET {api-prefix}/data/discovery` (optional `?table=...`).
+  - **Metadata admin**: `{api-prefix}/meta/...` (tables, columns, relations — no `/admin` segment).
+  Path-based tenant routing (`search_path`, schema per tenant) lives in **multistorage-sample** (`TenantPathFilter`, `TenantContext`). `GET {api-tenant-prefix}/tenants` is a **sample-only** endpoint for the UI, not part of the starter JAR.
+- **Dynamic entity endpoints** — For each business table described by metadata:
+  - `POST {api-prefix}/data/{entity}/search`
+  - `POST {api-prefix}/data/{entity}` (upsert)
+  - `DELETE {api-prefix}/data/{entity}/{id}`
 - **Request pipeline** — all operations go through:
   - receive request → validate request → preProcess handlers → operation → mapping to response → postProcess handlers
 - **Validation** — one validator per operation type:
@@ -29,16 +33,16 @@ Spring Boot starter that turns any application with a PostgreSQL database into a
   - one-to-many → array
   - many-to-one → single object
   - Search and upsert responses are returned in a nested structure.
-- **Discovery** — `GET {prefix}/{tenantId}/search/discovery?table=...` returns metadata for the client (tables, columns, relations).
+- **Discovery** — `GET {api-prefix}/data/discovery?table=...` returns metadata for the client (tables, columns, relations).
   - Discovery excludes columns with `readable = false`
-  - Discovery returns `searchable` flag for each visible column
-- **Metadata Admin API** — CRUD for metadata: `{prefix}/{tenantId}/admin/meta/...` (tables, columns, relations). Meta tables live in the tenant schema (sample: per-tenant PostgreSQL schema + `search_path`).
+  - Discovery returns `searchable` (and `editable`) for each visible column
+- **Metadata Admin API** — CRUD under `{api-prefix}/meta/...` (e.g. `/meta/tables`, `/meta/tables/{tableRef}/columns`, list relations at `/meta/tables/{tableRef}/relations`, upsert relation at `POST .../meta/relations`). In the sample, meta rows live in the active tenant PostgreSQL schema (`search_path` / `TenantContext`).
   - Admin DTOs now include `id`
   - Upsert semantics: if `id` is provided -> update, otherwise -> create
 - **Metadata customization** — `MetaCustomizer` bean can modify `QueryMeta` before compilation.
-- **OpenAPI** — paths follow the same `{prefix}/{tenantId}/...` pattern; operations are generated per entity and include request/response examples.
+- **OpenAPI** — paths follow the same `api-prefix` pattern; operations are generated per entity and include request/response examples.
 
-**Stack:** Spring Boot 4, WebMvc, Data JPA, Liquibase, PostgreSQL, springdoc-openapi.
+**Stack:** Spring Boot 4, WebMvc, Spring Data JPA, jOOQ, Liquibase, PostgreSQL, springdoc-openapi.
 
 ---
 
@@ -54,7 +58,7 @@ Spring Boot starter that turns any application with a PostgreSQL database into a
 </dependency>
 ```
 
-You also need: `spring-boot-starter-web`, `spring-boot-starter-data-jpa`, `liquibase-core`, `postgresql`, and optionally `springdoc-openapi-starter-webmvc-ui`.
+You also need: `spring-boot-starter-webmvc`, `spring-boot-starter-data-jpa`, `liquibase-core`, `postgresql`, and optionally `springdoc-openapi-starter-webmvc-ui` (the starter already pulls jOOQ and springdoc).
 
 ### 2) Run and open Swagger
 
@@ -65,9 +69,9 @@ You also need: `spring-boot-starter-web`, `spring-boot-starter-data-jpa`, `liqui
 
 You can seed metadata in two ways:
 - **Admin API** (recommended for manual setup): create `meta_table`, then `meta_column`, then `meta_relation`.
-- **Programmatic DB scan** (example in `multistorage-sample`): call `DatabaseMetadataManagerService.scanDatabase()`; if `MetaSyncService` is present it will sync scanned tables/columns/relations into meta tables.
+- **Programmatic DB scan** (example in `multistorage-sample` `AppInitializer`): call `DatabaseMetadataManagerService.scanDatabase()`; the starter’s `MetaSyncService` bean runs `syncFromScan` after each scan and upserts meta rows from JDBC metadata.
 
-Admin API base path: `{prefix}/{tenantId}/admin/meta` (tables / columns / relations).
+Admin API base path: `{api-prefix}/meta` — tables at `/meta/tables`, columns at `/meta/tables/{tableRef}/columns`, relations listed at `/meta/tables/{tableRef}/relations`, relation upsert at `POST /meta/relations`.
 
 ### 4) Call entity endpoints
 
@@ -82,7 +86,7 @@ curl -X POST "http://localhost:8080/api/demo/data/<entity>/search" \
 Upsert:
 
 ```bash
-curl -X POST "http://localhost:8080/api/demo/<entity>" \
+curl -X POST "http://localhost:8080/api/demo/data/<entity>" \
   -H "Content-Type: application/json" \
   -d '{"name":"example"}'
 ```
@@ -99,7 +103,7 @@ curl -X DELETE "http://localhost:8080/api/demo/data/<entity>/1"
 
 ### Search
 
-`POST {api-prefix}/{entity}/search`
+`POST {api-prefix}/data/{entity}/search`
 
 Body (`Query`):
 - **select** — list of paths (`["*"]`, `["relation", "*"]`, `["a","b","field"]`)
@@ -125,7 +129,7 @@ Response: array of entities with nested relations (tree).
 
 ### Upsert (create/update)
 
-`POST {api-prefix}/{entity}`
+`POST {api-prefix}/data/{entity}`
 
 Body: JSON object (entity). Keys can be column **name** or **alias**. Relation keys are relation aliases from `meta_relation.alias`.
 
@@ -135,7 +139,7 @@ Response: saved entity in nested form (tree). Internally the starter persists an
 
 ### Delete
 
-`DELETE {api-prefix}/{entity}/{id}`
+`DELETE {api-prefix}/data/{entity}/{id}`
 
 Response:
 
@@ -221,17 +225,17 @@ multistorage:
 
 ## Database and metadata
 
-- Configure PostgreSQL and Liquibase in your application.
-- The starter brings meta migrations (`db/changelog/meta/`) that create:
+- Configure PostgreSQL and Liquibase in your application. The **sample** sets `spring.liquibase.enabled: false` and runs changelogs per schema via `MultitenantLiquibaseInitializer` (public + starter meta + tenant business); a typical consumer app can use standard Spring Liquibase instead.
+- The starter ships changelog `db/changelog/multistorage-meta-master.yaml`, which includes changesets under `db/changelog/meta/` and creates:
   - `meta_table`, `meta_column`, `meta_relation`
-  - including `meta_relation.cascade_type` for nested upsert cascade control
-- Register your business tables/columns/relations in metadata (Admin API or your own seeds).
+  - including `meta_relation.cascade_type` and column `editable` for nested upsert / UI behavior
+- Register your business tables/columns/relations in metadata (Admin API, `MetaSyncService` after scan, or your own seeds).
 
-### 3. Auto-configuration
+### Auto-configuration
 
-The starter provides `MultistorageAutoConfiguration` (component scan for `meta`, `pipeline`, `query`, `config`, JPA entities and meta repositories, and `MultistorageScanProperties`).
+The starter provides `MultistorageAutoConfiguration` (component scan for `meta`, `pipeline`, `data`, `openapi`, `config`; JPA entity scan and meta repositories; `MultistorageScanProperties` and `MultistorageWebProperties`).
 
-### 4. Metadata customization
+### Metadata customization
 
 Implement and register a bean:
 
