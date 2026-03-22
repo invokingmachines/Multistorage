@@ -13,4 +13,43 @@
       {{ saving ? 'Saving...' : 'Save' }}
     </button>
   }
+
+  <h2>Features</h2>
+
+  <h3 class="feature-section-title">Available to activate</h3>
+  @if (featuresAvailableToActivate.length === 0) {
+    <p class="feature-empty">No optional features pending activation.</p>
+  } @else {
+    <ul class="feature-list">
+      @for (f of featuresAvailableToActivate; track f.code) {
+        <li class="feature-row">
+          <span class="feature-code">{{ f.code }}</span>
+          <code class="feature-path">{{ f.path }}</code>
+          <button
+            type="button"
+            class="feature-enable-btn"
+            (click)="enableFeature(f.code)"
+            [disabled]="enablingFeatureCode === f.code"
+          >
+            {{ enablingFeatureCode === f.code ? 'Activating…' : 'Activate' }}
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  <h3 class="feature-section-title">Enabled</h3>
+  @if (featuresEnabled.length === 0) {
+    <p class="feature-empty">No optional features are enabled yet.</p>
+  } @else {
+    <ul class="feature-list">
+      @for (f of featuresEnabled; track f.code) {
+        <li class="feature-row">
+          <span class="feature-code">{{ f.code }}</span>
+          <code class="feature-path">{{ f.path }}</code>
+          <span class="feature-enabled">active</span>
+        </li>
+      }
+    </ul>
+  }
 </section>

@@ -6,6 +6,7 @@ import {
   ColumnDiscoveryDto,
   MetaColumnDto,
   MetaDiscoveryDto,
+  MetaFeatureDto,
   MetaRelationDto,
   MetaTableDto,
   SearchRequest,
@@ -99,6 +100,17 @@ export class MultistorageApiService {
       columns[0]?.alias ||
       columns[0]?.name ||
       'id'
+    );
+  }
+
+  listFeatures(): Observable<MetaFeatureDto[]> {
+    return this.http.get<MetaFeatureDto[]>(`${this.tenantScopedApiRoot()}/meta/features`);
+  }
+
+  enableFeature(code: string): Observable<void> {
+    return this.http.post<void>(
+      `${this.tenantScopedApiRoot()}/meta/features/${encodeURIComponent(code)}/enable`,
+      null
     );
   }
 

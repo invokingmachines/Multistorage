@@ -52,7 +52,8 @@ public class UpsertE2ETest extends AbstractE2ETest {
                 "name", "Child X",
                 "createdAt", "2024-01-15T10:00:00Z",
                 "updatedAt", "2024-01-15T10:00:00Z",
-                E2ETestConfig.R_CHILD_TO_PARENT, Map.of("name", "Parent Nested")
+                E2ETestConfig.R_CHILD_TO_PARENT, Map.of("name", "Parent Nested"),
+                E2ETestConfig.R_CHILD_TO_CHILD_META, Map.of("childType", "seed", "metaValue", "nested")
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(r.getBody()).containsEntry("name", "Child X").containsKey("id");
@@ -66,8 +67,18 @@ public class UpsertE2ETest extends AbstractE2ETest {
         var r = postUpsert(E2ETestConfig.T_PARENT, Map.of(
                 "name", "Parent With Kids",
                 E2ETestConfig.R_PARENT_TO_CHILD, List.of(
-                        Map.of("name", "Kid 1", "createdAt", now.toString(), "updatedAt", now.toString()),
-                        Map.of("name", "Kid 2", "createdAt", now.toString(), "updatedAt", now.toString())
+                        Map.of(
+                                "name", "Kid 1",
+                                "createdAt", now.toString(),
+                                "updatedAt", now.toString(),
+                                E2ETestConfig.R_CHILD_TO_CHILD_META, Map.of("childType", "seed", "metaValue", "k1")
+                        ),
+                        Map.of(
+                                "name", "Kid 2",
+                                "createdAt", now.toString(),
+                                "updatedAt", now.toString(),
+                                E2ETestConfig.R_CHILD_TO_CHILD_META, Map.of("childType", "seed", "metaValue", "k2")
+                        )
                 )
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -75,20 +86,20 @@ public class UpsertE2ETest extends AbstractE2ETest {
     }
 
     @Test
-    void upsert_insertChild_withChildMeta_oneToManyCascade_persistsGrandChildren() {
+    void upsert_insertChild_withChildMeta_manyToOneCascade_persistsMetaRow() {
         Instant now = Instant.parse("2024-01-15T10:00:00Z");
         var r = postUpsert(E2ETestConfig.T_CHILD, Map.of(
                 "parentId", 1,
                 "name", "Child With Meta",
                 "createdAt", now.toString(),
                 "updatedAt", now.toString(),
-                E2ETestConfig.R_CHILD_TO_CHILD_META, List.of(
-                        Map.of("metaValue", "m1"),
-                        Map.of("metaValue", "m2")
-                )
+                E2ETestConfig.R_CHILD_TO_CHILD_META, Map.of("childType", "seed", "metaValue", "m1")
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("child_meta") + " WHERE meta_value IN ('m1','m2')", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("child_meta") + " WHERE meta_value = 'm1'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM " + tenantTable("child") + " WHERE name = 'Child With Meta' AND child_meta_id IS NOT NULL",
+                Integer.class)).isEqualTo(1);
     }
 
     @Test
@@ -113,7 +124,8 @@ public class UpsertE2ETest extends AbstractE2ETest {
                 "name", "Child Bad",
                 "createdAt", now.toString(),
                 "updatedAt", now.toString(),
-                E2ETestConfig.R_CHILD_TO_PARENT, Map.of("name", "Parent Bad")
+                E2ETestConfig.R_CHILD_TO_PARENT, Map.of("name", "Parent Bad"),
+                E2ETestConfig.R_CHILD_TO_CHILD_META, Map.of("childType", "seed", "metaValue", "bad")
         ));
         assertThat(r.getStatusCode().is5xxServerError()).isTrue();
         setCascade(E2ETestConfig.R_CHILD_TO_PARENT, "PERSIST_MERGE");
@@ -121,8 +133,10 @@ public class UpsertE2ETest extends AbstractE2ETest {
 
     @Test
     void upsert_timestampWithOffset_convertsToJdbcTimestamp() {
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_type, meta_value) VALUES (?,?)", "t", "ts");
         var r = postUpsert(E2ETestConfig.T_CHILD, Map.of(
                 "parentId", 1,
+                "childMetaId", 1,
                 "name", "Child TS",
                 "createdAt", "2024-01-15T10:00:00+00:00",
                 "updatedAt", "2024-01-15T10:00:00+00:00"
@@ -133,9 +147,11 @@ public class UpsertE2ETest extends AbstractE2ETest {
 
     @Test
     void upsert_numericAsString_converts() {
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_type, meta_value) VALUES (?,?)", "t", "num");
         Instant now = Instant.parse("2024-01-15T10:00:00Z");
         var r = postUpsert(E2ETestConfig.T_CHILD, Map.of(
                 "parentId", "1",
+                "childMetaId", "1",
                 "name", "Child Num",
                 "createdAt", now.toString(),
                 "updatedAt", now.toString()
@@ -154,7 +170,7 @@ public class UpsertE2ETest extends AbstractE2ETest {
                                 "name", "Kid Tree",
                                 "createdAt", now.toString(),
                                 "updatedAt", now.toString(),
-                                E2ETestConfig.R_CHILD_TO_CHILD_META, List.of(Map.of("metaValue", "mx"))
+                                E2ETestConfig.R_CHILD_TO_CHILD_META, Map.of("childType", "seed", "metaValue", "mx")
                         )
                 )
         ));
@@ -172,8 +188,10 @@ public class UpsertE2ETest extends AbstractE2ETest {
     @Test
     void upsert_updateChild_updatesTimestamps() {
         Instant now = Instant.parse("2024-01-15T10:00:00Z");
-        jdbc.update("INSERT INTO " + tenantTable("child") + "(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
-                1L, "Child U", Timestamp.from(now), Timestamp.from(now));
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_type, meta_value) VALUES (?,?)", "t", "u");
+        jdbc.update(
+                "INSERT INTO " + tenantTable("child") + "(parent_id, child_meta_id, name, created_at, updated_at) VALUES (?,?,?,?,?)",
+                1L, 1L, "Child U", Timestamp.from(now), Timestamp.from(now));
         var r = postUpsert(E2ETestConfig.T_CHILD, Map.of(
                 "id", 1,
                 "name", "Child U2",
@@ -187,4 +205,5 @@ public class UpsertE2ETest extends AbstractE2ETest {
         jdbc.update("UPDATE " + tenantTable("meta_relation") + " SET cascade_type = ? WHERE alias = ?", cascade, relationAlias);
     }
 }
+
 

@@ -1,13 +1,9 @@
 package com.invokingmachines.multistorage.sample.liquibase;
 
+import com.invokingmachines.multistorage.liquibase.SchemaLiquibaseRunner;
 import com.invokingmachines.multistorage.sample.multitenancy.MultitenantDataSource;
 import com.invokingmachines.multistorage.sample.multitenancy.TenantContext;
 import com.invokingmachines.multistorage.sample.multitenancy.TenantSchemaRegistry;
-import liquibase.Liquibase;
-import liquibase.database.Database;
-import liquibase.database.DatabaseFactory;
-import liquibase.database.jvm.JdbcConnection;
-import liquibase.resource.ClassLoaderResourceAccessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -43,7 +39,7 @@ public class MultitenantLiquibaseInitializer implements ApplicationRunner {
 
         try {
             TenantContext.clear();
-            runLiquibase(dataSource, PUBLIC_CHANGELOG, "public", "public");
+            SchemaLiquibaseRunner.run(dataSource, PUBLIC_CHANGELOG, "public", "public");
         } finally {
             TenantContext.clear();
         }
@@ -58,29 +54,14 @@ public class MultitenantLiquibaseInitializer implements ApplicationRunner {
             try {
                 TenantContext.setTenantCode(tenant.code());
                 String schema = TenantSchemaRegistry.schemaNameForTenantId(tenant.id());
-                runLiquibase(dataSource, STARTER_META_CHANGELOG, schema, schema);
-                runLiquibase(dataSource, TENANT_BUSINESS_CHANGELOG, schema, schema);
+                SchemaLiquibaseRunner.run(dataSource, STARTER_META_CHANGELOG, schema, schema);
+                SchemaLiquibaseRunner.run(dataSource, TENANT_BUSINESS_CHANGELOG, schema, schema);
                 log.info("Liquibase applied for tenant {} schema {}", tenant.code(), schema);
             } finally {
                 TenantContext.clear();
             }
         }
         tenantSchemaRegistry.refresh();
-    }
-
-    private static void runLiquibase(DataSource ds, String changelogClasspath, String defaultSchema, String liquibaseSchema)
-            throws Exception {
-        String path = changelogClasspath.startsWith("classpath:")
-                ? changelogClasspath.substring("classpath:".length())
-                : changelogClasspath;
-        try (Connection connection = ds.getConnection()) {
-            JdbcConnection jdbcConnection = new JdbcConnection(connection);
-            Database database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(jdbcConnection);
-            database.setDefaultSchemaName(defaultSchema);
-            database.setLiquibaseSchemaName(liquibaseSchema);
-            Liquibase liquibase = new Liquibase(path, new ClassLoaderResourceAccessor(), database);
-            liquibase.update("");
-        }
     }
 
     private static void createSchemaIfMissing(DataSource ds, String schema) throws Exception {

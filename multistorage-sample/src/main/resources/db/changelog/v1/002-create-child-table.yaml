@@ -1,5 +1,28 @@
 databaseChangeLog:
   - changeSet:
+      id: 002-create-child-meta-table
+      author: system
+      changes:
+        - createTable:
+            tableName: child_meta
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: child_type
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: meta_value
+                  type: TEXT
+                  constraints:
+                    nullable: false
+  - changeSet:
       id: 002-create-child-table
       author: system
       changes:
@@ -18,10 +41,20 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: child_meta_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
                   name: name
                   type: VARCHAR(255)
                   constraints:
                     nullable: false
+              - column:
+                  name: value
+                  type: TEXT
+                  constraints:
+                    nullable: true
               - column:
                   name: created_at
                   type: TIMESTAMP WITH TIME ZONE
@@ -39,33 +72,10 @@ databaseChangeLog:
             referencedTableName: parent
             referencedColumnNames: id
             onDelete: CASCADE
-  - changeSet:
-      id: 002-create-child-meta-table
-      author: system
-      changes:
-        - createTable:
-            tableName: child_meta
-            columns:
-              - column:
-                  name: id
-                  type: BIGSERIAL
-                  constraints:
-                    primaryKey: true
-                    nullable: false
-              - column:
-                  name: child_id
-                  type: BIGINT
-                  constraints:
-                    nullable: false
-              - column:
-                  name: meta_value
-                  type: TEXT
-                  constraints:
-                    nullable: false
         - addForeignKeyConstraint:
-            baseTableName: child_meta
-            baseColumnNames: child_id
-            constraintName: fk_child_meta_child
-            referencedTableName: child
+            baseTableName: child
+            baseColumnNames: child_meta_id
+            constraintName: fk_child_child_meta
+            referencedTableName: child_meta
             referencedColumnNames: id
-            onDelete: CASCADE
+            onDelete: RESTRICT

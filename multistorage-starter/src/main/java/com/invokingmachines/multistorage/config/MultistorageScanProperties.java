@@ -16,7 +16,8 @@ public class MultistorageScanProperties {
             "databasechangeloglock",
             "meta_table",
             "meta_column",
-            "meta_relation"
+            "meta_relation",
+            "meta_feature"
     );
 
     private static final List<String> DEFAULT_NON_EDITABLE_COLUMN_ALIASES = List.of(

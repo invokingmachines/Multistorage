@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, finalize, forkJoin, of, switchMap } from 'rxjs';
 import { MultistorageApiService } from '../../core/api/multistorage-api.service';
-import { MetaColumnDto, MetaRelationDto, MetaTableDto } from '../../core/models/multistorage-models';
+import { MetaColumnDto, MetaFeatureDto, MetaRelationDto, MetaTableDto } from '../../core/models/multistorage-models';
 import { PopupNotificationService } from '../../core/ui/popup-notification.service';
 import {
   GenericTableCellEditEvent,
@@ -27,6 +27,8 @@ export class AdminComponent implements OnInit {
   protected metaTables: MetaTableDto[] = [];
   protected metaColumns: MetaColumnDto[] = [];
   protected metaRelations: MetaRelationDto[] = [];
+  protected features: MetaFeatureDto[] = [];
+  protected enablingFeatureCode: string | null = null;
   private readonly tableSnapshots = new WeakMap<object, string>();
   private readonly columnSnapshots = new WeakMap<object, string>();
   private readonly relationSnapshots = new WeakMap<object, string>();
@@ -77,6 +79,14 @@ export class AdminComponent implements OnInit {
     );
   }
 
+  protected get featuresAvailableToActivate(): MetaFeatureDto[] {
+    return this.features.filter((f) => !f.enabled);
+  }
+
+  protected get featuresEnabled(): MetaFeatureDto[] {
+    return this.features.filter((f) => f.enabled);
+  }
+
   ngOnInit(): void {
     this.route.paramMap.subscribe((params) => {
       const code = params.get('tenantCode') ?? '';
@@ -90,10 +100,13 @@ export class AdminComponent implements OnInit {
   protected reload(): void {
     this.loading = true;
     this.notifications.show('Loading admin data...', 1200);
-    this.api
-      .listMetaTables()
+    forkJoin({
+      features: this.api.listFeatures(),
+      tables: this.api.listMetaTables()
+    })
       .pipe(
-        switchMap((tables) => {
+        switchMap(({ features, tables }) => {
+          this.features = features ?? [];
           this.metaTables = tables ?? [];
           const refs = this.metaTables.map((t) => t.alias || t.name).filter((v) => !!v);
           if (refs.length === 0) {
@@ -115,6 +128,20 @@ export class AdminComponent implements OnInit {
         error: () => {
           this.notifications.show('Failed to load admin data.', 3500, 'error');
         }
+      });
+  }
+
+  protected enableFeature(code: string): void {
+    this.enablingFeatureCode = code;
+    this.api
+      .enableFeature(code)
+      .pipe(finalize(() => (this.enablingFeatureCode = null)))
+      .subscribe({
+        next: () => {
+          this.notifications.show(`Feature ${code} activated.`, 3500, 'info');
+          this.reload();
+        },
+        error: () => this.notifications.show(`Failed to enable feature ${code}.`, 3500, 'error')
       });
   }
 

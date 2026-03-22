@@ -70,6 +70,15 @@ export interface TenantResponse {
   code: string;
 }
 
+export interface MetaFeatureDto {
+  id: number;
+  code: string;
+  path: string;
+  enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface MetaRelationDto {
   id?: string;
   fromTable: string;

@@ -93,7 +93,7 @@ public class SearchE2ETest extends AbstractE2ETest {
         ));
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
         List<Map<String, Object>> list = asSearchResult(r);
-        assertThat(list.get(0)).containsKeys("id", "name", "createdAt", "updatedAt", "parentId");
+        assertThat(list.get(0)).containsKeys("id", "name", "createdAt", "updatedAt", "parentId", "childMetaId", "value");
     }
 
     @Test
@@ -169,7 +169,6 @@ public class SearchE2ETest extends AbstractE2ETest {
     @Test
     void search_selectDeepNestedRelationStar_works() {
         seedChildren();
-        seedChildMeta();
         var r = postSearch(E2ETestConfig.T_CHILD, Map.of(
                 "select", List.of(List.of("name"), List.of(E2ETestConfig.R_CHILD_TO_CHILD_META, "*")),
                 "where", Map.of("logician", "AND", "criteria", List.of(
@@ -179,7 +178,7 @@ public class SearchE2ETest extends AbstractE2ETest {
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
         List<Map<String, Object>> body = asSearchResult(r);
         assertThat(body).hasSize(1);
-        assertThat(body.get(0).get(E2ETestConfig.R_CHILD_TO_CHILD_META)).isInstanceOf(List.class);
+        assertThat(body.get(0).get(E2ETestConfig.R_CHILD_TO_CHILD_META)).isInstanceOf(Map.class);
     }
 
     @Test
@@ -219,18 +218,18 @@ public class SearchE2ETest extends AbstractE2ETest {
 
     private void seedChildren() {
         Instant now = Instant.parse("2024-01-15T10:00:00Z");
-        jdbc.update("INSERT INTO " + tenantTable("child") + "(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
-                1L, "Child 1", Timestamp.from(now), Timestamp.from(now));
-        jdbc.update("INSERT INTO " + tenantTable("child") + "(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
-                1L, "Child 2", Timestamp.from(now.plusSeconds(60)), Timestamp.from(now.plusSeconds(60)));
-        jdbc.update("INSERT INTO " + tenantTable("child") + "(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
-                2L, "Child 3", Timestamp.from(now.plusSeconds(120)), Timestamp.from(now.plusSeconds(120)));
-    }
-
-    private void seedChildMeta() {
-        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_id, meta_value) VALUES (?,?)", 1L, "m1");
-        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_id, meta_value) VALUES (?,?)", 1L, "m2");
-        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_id, meta_value) VALUES (?,?)", 2L, "m3");
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_type, meta_value) VALUES (?,?)", "t", "m1");
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_type, meta_value) VALUES (?,?)", "t", "");
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_type, meta_value) VALUES (?,?)", "t", "m3");
+        jdbc.update(
+                "INSERT INTO " + tenantTable("child") + "(parent_id, child_meta_id, name, value, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                1L, 1L, "Child 1", null, Timestamp.from(now), Timestamp.from(now));
+        jdbc.update(
+                "INSERT INTO " + tenantTable("child") + "(parent_id, child_meta_id, name, value, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                1L, 2L, "Child 2", null, Timestamp.from(now.plusSeconds(60)), Timestamp.from(now.plusSeconds(60)));
+        jdbc.update(
+                "INSERT INTO " + tenantTable("child") + "(parent_id, child_meta_id, name, value, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                2L, 3L, "Child 3", null, Timestamp.from(now.plusSeconds(120)), Timestamp.from(now.plusSeconds(120)));
     }
 }
 

@@ -14,3 +14,6 @@ databaseChangeLog:
   - include:
       file: meta/005-meta-column-editable.yaml
       relativeToChangelogFile: true
+  - include:
+      file: meta/006-meta-feature.yaml
+      relativeToChangelogFile: true

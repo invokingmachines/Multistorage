@@ -14,3 +14,6 @@ databaseChangeLog:
   - include:
       file: ../v1/005-expand-tenant-seed.yaml
       relativeToChangelogFile: true
+  - include:
+      file: ../v1/006-meta-feature.yaml
+      relativeToChangelogFile: true

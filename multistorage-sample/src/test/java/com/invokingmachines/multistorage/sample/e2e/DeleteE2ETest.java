@@ -54,10 +54,12 @@ public class DeleteE2ETest extends AbstractE2ETest {
     @Test
     void delete_childMetaRow_works() {
         seedOneChild();
-        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_id, meta_value) VALUES (?,?)", 1L, "m1");
-        var r = deleteEntity(E2ETestConfig.T_CHILD_META, 1);
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_type, meta_value) VALUES (?,?)", "orphan", "del");
+        Long metaId = jdbc.queryForObject("SELECT MAX(id) FROM " + tenantTable("child_meta"), Long.class);
+        var r = deleteEntity(E2ETestConfig.T_CHILD_META, metaId);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + tenantTable("child_meta") + " WHERE id = 1", Integer.class)).isEqualTo(0);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM " + tenantTable("child_meta") + " WHERE id = ?", Integer.class, metaId)).isEqualTo(0);
     }
 
     @Test
@@ -68,8 +70,10 @@ public class DeleteE2ETest extends AbstractE2ETest {
 
     private void seedOneChild() {
         Instant now = Instant.parse("2024-01-15T10:00:00Z");
-        jdbc.update("INSERT INTO " + tenantTable("child") + "(parent_id, name, created_at, updated_at) VALUES (?,?,?,?)",
-                1L, "Child 1", Timestamp.from(now), Timestamp.from(now));
+        jdbc.update("INSERT INTO " + tenantTable("child_meta") + "(child_type, meta_value) VALUES (?,?)", "t", "c1");
+        jdbc.update(
+                "INSERT INTO " + tenantTable("child") + "(parent_id, child_meta_id, name, created_at, updated_at) VALUES (?,?,?,?,?)",
+                1L, 1L, "Child 1", Timestamp.from(now), Timestamp.from(now));
     }
 }
 
