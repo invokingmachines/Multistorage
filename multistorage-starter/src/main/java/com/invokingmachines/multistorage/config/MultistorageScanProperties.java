@@ -20,6 +20,7 @@ public class MultistorageScanProperties {
             "meta_feature"
     );
 
+
     private static final List<String> DEFAULT_NON_EDITABLE_COLUMN_ALIASES = List.of(
             "id",
             "createdAt",
