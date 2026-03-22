@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-seed-meta-feature-parent-extension
+      author: system
+      changes:
+        - insert:
+            tableName: meta_feature
+            columns:
+              - column: { name: code, value: "ParentExtension" }
+              - column: { name: path, value: "db/changelog/features/parent-extension.yaml" }
+              - column: { name: enabled, valueBoolean: false }

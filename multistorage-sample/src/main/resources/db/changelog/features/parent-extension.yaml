@@ -1,0 +1,117 @@
+databaseChangeLog:
+  - changeSet:
+      id: feature-parent-extension-table
+      author: system
+      changes:
+        - createTable:
+            tableName: parent_extension
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: parent_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: extension_field_a
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: extension_field_b
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: parent_extension
+            baseColumnNames: parent_id
+            constraintName: fk_parent_extension_parent
+            referencedTableName: parent
+            referencedColumnNames: id
+            onDelete: CASCADE
+  - changeSet:
+      id: feature-parent-extension-seed-rows
+      author: system
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: |
+              INSERT INTO parent_extension (parent_id, extension_field_a, extension_field_b) VALUES
+              (1, 'ext A for parent 1', 'ext B for parent 1'),
+              (2, 'ext A for parent 2', 'ext B for parent 2');
+  - changeSet:
+      id: feature-parent-extension-meta
+      author: system
+      changes:
+        - sql:
+            dbms: postgresql
+            splitStatements: false
+            sql: |
+              INSERT INTO meta_table (id, name, alias, created_at, updated_at)
+              SELECT 'a0eebc99-9c0b-4ef8-bb6d-99bb9aeb8001'::uuid, 'parent_extension', 'ParentExtension', NOW(), NOW()
+              WHERE NOT EXISTS (SELECT 1 FROM meta_table WHERE name = 'parent_extension');
+
+              INSERT INTO meta_column (id, table_id, name, alias, data_type, readable, searchable, editable, created_at, updated_at)
+              SELECT gen_random_uuid(), (SELECT id FROM meta_table WHERE name = 'parent_extension' LIMIT 1), 'id', 'id', 'bigint', true, true, false, NOW(), NOW()
+              WHERE NOT EXISTS (SELECT 1 FROM meta_column c JOIN meta_table t ON t.id = c.table_id WHERE t.name = 'parent_extension' AND c.name = 'id');
+
+              INSERT INTO meta_column (id, table_id, name, alias, data_type, readable, searchable, editable, created_at, updated_at)
+              SELECT gen_random_uuid(), (SELECT id FROM meta_table WHERE name = 'parent_extension' LIMIT 1), 'parent_id', 'parentId', 'bigint', true, true, true, NOW(), NOW()
+              WHERE NOT EXISTS (SELECT 1 FROM meta_column c JOIN meta_table t ON t.id = c.table_id WHERE t.name = 'parent_extension' AND c.name = 'parent_id');
+
+              INSERT INTO meta_column (id, table_id, name, alias, data_type, readable, searchable, editable, created_at, updated_at)
+              SELECT gen_random_uuid(), (SELECT id FROM meta_table WHERE name = 'parent_extension' LIMIT 1), 'extension_field_a', 'extensionFieldA', 'text', true, true, true, NOW(), NOW()
+              WHERE NOT EXISTS (SELECT 1 FROM meta_column c JOIN meta_table t ON t.id = c.table_id WHERE t.name = 'parent_extension' AND c.name = 'extension_field_a');
+
+              INSERT INTO meta_column (id, table_id, name, alias, data_type, readable, searchable, editable, created_at, updated_at)
+              SELECT gen_random_uuid(), (SELECT id FROM meta_table WHERE name = 'parent_extension' LIMIT 1), 'extension_field_b', 'extensionFieldB', 'text', true, true, true, NOW(), NOW()
+              WHERE NOT EXISTS (SELECT 1 FROM meta_column c JOIN meta_table t ON t.id = c.table_id WHERE t.name = 'parent_extension' AND c.name = 'extension_field_b');
+
+              INSERT INTO meta_column (id, table_id, name, alias, data_type, readable, searchable, editable, created_at, updated_at)
+              SELECT gen_random_uuid(), (SELECT id FROM meta_table WHERE name = 'parent_extension' LIMIT 1), 'created_at', 'createdAt', 'timestamptz', true, false, false, NOW(), NOW()
+              WHERE NOT EXISTS (SELECT 1 FROM meta_column c JOIN meta_table t ON t.id = c.table_id WHERE t.name = 'parent_extension' AND c.name = 'created_at');
+
+              INSERT INTO meta_column (id, table_id, name, alias, data_type, readable, searchable, editable, created_at, updated_at)
+              SELECT gen_random_uuid(), (SELECT id FROM meta_table WHERE name = 'parent_extension' LIMIT 1), 'updated_at', 'updatedAt', 'timestamptz', true, false, false, NOW(), NOW()
+              WHERE NOT EXISTS (SELECT 1 FROM meta_column c JOIN meta_table t ON t.id = c.table_id WHERE t.name = 'parent_extension' AND c.name = 'updated_at');
+
+              INSERT INTO meta_relation (id, from_table_id, to_table_id, from_column, to_column, is_one_to_many, alias, is_active, created_at, updated_at, cascade_type)
+              SELECT gen_random_uuid(),
+                (SELECT id FROM meta_table WHERE name = 'parent_extension' LIMIT 1),
+                (SELECT id FROM meta_table WHERE name = 'parent' LIMIT 1),
+                'parent_id', 'id', false, 'parent', true, NOW(), NOW(), 'PERSIST_MERGE'
+              WHERE NOT EXISTS (
+                SELECT 1 FROM meta_relation r
+                JOIN meta_table ft ON ft.id = r.from_table_id
+                JOIN meta_table tt ON tt.id = r.to_table_id
+                WHERE ft.name = 'parent_extension' AND tt.name = 'parent' AND r.alias = 'parent'
+              );
+
+              INSERT INTO meta_relation (id, from_table_id, to_table_id, from_column, to_column, is_one_to_many, alias, is_active, created_at, updated_at, cascade_type)
+              SELECT gen_random_uuid(),
+                (SELECT id FROM meta_table WHERE name = 'parent' LIMIT 1),
+                (SELECT id FROM meta_table WHERE name = 'parent_extension' LIMIT 1),
+                'id', 'parent_id', true, 'parentExtensions', true, NOW(), NOW(), 'PERSIST_MERGE'
+              WHERE NOT EXISTS (
+                SELECT 1 FROM meta_relation r
+                JOIN meta_table ft ON ft.id = r.from_table_id
+                JOIN meta_table tt ON tt.id = r.to_table_id
+                WHERE ft.name = 'parent' AND tt.name = 'parent_extension' AND r.alias = 'parentExtensions'
+              );
